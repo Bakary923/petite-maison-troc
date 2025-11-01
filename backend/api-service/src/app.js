@@ -1,3 +1,6 @@
+// Permet de charger les variables d'environnement définies dans .env
+require('dotenv').config();
+
 // On importe le module Express
 const express = require('express');
 const app = express();
