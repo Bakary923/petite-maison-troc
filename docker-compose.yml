@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: petite-maison-db
+    environment:
+      POSTGRES_DB: petite_maison
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: devpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: petite-maison-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+
+
+# Explications :
+
+# postgres : lance PostgreSQL en local avec les identifiants choisis.
+
+# adminer : petit outil web pratique pour vérifier / manipuler ta base (accès sur http://localhost:8080).
+
+# volumes : assure la persistance des données, même si tu redémarres les containers.
