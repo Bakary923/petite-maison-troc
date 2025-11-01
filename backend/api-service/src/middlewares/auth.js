@@ -1,24 +1,28 @@
-// Pour que seules les personnes connectées (avec token valide) puissent accéder à certaines routes (ex : création d'annonce)
-
-// Middleware d'authentification par token JWT
+// Middleware pour protéger les routes : seules les personnes ayant un token JWT valide ont accès
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = (req, res, next) => {
-  // Récupère le token dans l’en-tête Authorization : Bearer <token> ("Bearer xxx")
+  // Affiche la réception du middleware et les headers, utile pour le debug
+  console.log("Passage dans le middleware auth, headers:", req.headers);
+
+  // Vérifie la présence d'un header Authorization
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token manquant ou invalide' });
   }
 
+  // Récupère le token après 'Bearer '
   const token = authHeader.split(' ')[1];
   try {
-    // Vérifie la validité du token et extrait les données utilisateur
+    // Vérifie et décode le token JWT
     const decoded = jwt.verify(token, JWT_SECRET);
-    // Ajoute les infos du user à req pour les routes suivantes
-    req.user = decoded; // Injection du user dans la requête pour les routes suivantes
-    next();
+    // Ajoute les informations de l'utilisateur à la requête pour les prochaines middlewares/routes
+    req.user = decoded;
+    next(); // Passe la main à la route suivante
   } catch (err) {
+    // Si le token est invalide ou expiré
+    console.error("Erreur JWT:", err);
     return res.status(401).json({ error: 'Token invalide ou expiré' });
   }
 };

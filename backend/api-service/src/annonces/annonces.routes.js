@@ -32,9 +32,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/annonces/mes : annonces créées par l'utilisateur connecté
+router.get('/mes', auth, async (req, res) => {
+  console.log("req.user =", req.user);
+  try {
+    const userId = req.user.id;
+    const result = await req.app.locals.pool.query(
+      'SELECT * FROM annonces WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    res.json({ annonces: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // GET /api/annonces/:id : affiche le détail d'une annonce précise (publique)
 router.get('/:id', async (req, res) => {
-  const { id } = req.params;
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "ID invalide" });
+  }
   try {
     const result = await req.app.locals.pool.query(
       'SELECT annonces.*, users.username FROM annonces JOIN users ON annonces.user_id = users.id WHERE annonces.id = $1',
@@ -48,7 +66,6 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
-
 
 
 module.exports = router;
