@@ -100,4 +100,61 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// PUT /api/annonces/:id : modifie une annonce (propriétaire uniquement)
+// Utilise PUT pour remplacer/mettre à jour les champs fournis (titre et/ou description).
+router.put('/:id', auth, async (req, res) => {
+  // Récupération et validation de l'id
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "ID invalide" });
+  }
+
+  // Champs modifiables attendus dans le body
+  const { titre, description } = req.body;
+  // Si aucun champ fourni, on refuse la requête
+  if (titre === undefined && description === undefined) {
+    return res.status(400).json({ error: "Aucun champ fourni pour la mise à jour" });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    // Vérifier que l'annonce existe et récupérer son propriétaire
+    const check = await req.app.locals.pool.query(
+      'SELECT user_id FROM annonces WHERE id = $1',
+      [id]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Annonce non trouvée" });
+    }
+    if (check.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: "Accès refusé" });
+    }
+
+    // Construction dynamique de la requête UPDATE selon les champs fournis
+    const sets = [];
+    const values = [];
+    let idx = 1;
+    if (titre !== undefined) {
+      sets.push(`titre = $${idx++}`);
+      values.push(titre);
+    }
+    if (description !== undefined) {
+      sets.push(`description = $${idx++}`);
+      values.push(description);
+    }
+    // Ajout de l'id en dernier paramètre
+    values.push(id);
+
+    const query = `UPDATE annonces SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`;
+
+    // Exécution de la mise à jour et retour de l'annonce modifiée
+    const result = await req.app.locals.pool.query(query, values);
+    res.json({ annonce: result.rows[0] });
+  } catch (err) {
+    // Erreur serveur générique (ne pas exposer err.message en prod)
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 module.exports = router;
