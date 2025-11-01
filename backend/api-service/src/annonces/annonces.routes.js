@@ -67,5 +67,37 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/annonces/:id : supprime une annonce (propriétaire uniquement)
+router.delete('/:id', auth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (Number.isNaN(id)) {
+    return res.status(400).json({ error: "ID invalide" });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    // Vérifie d'abord que l'annonce existe et appartient à l'utilisateur
+    const check = await req.app.locals.pool.query(
+      'SELECT user_id FROM annonces WHERE id = $1',
+      [id]
+    );
+    if (check.rows.length === 0) {
+      return res.status(404).json({ error: "Annonce non trouvée" });
+    }
+    if (check.rows[0].user_id !== userId) {
+      return res.status(403).json({ error: "Accès refusé" });
+    }
+
+    // Suppression de l'annonce
+    await req.app.locals.pool.query(
+      'DELETE FROM annonces WHERE id = $1',
+      [id]
+    );
+    res.json({ message: "Annonce supprimée" });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
 
 module.exports = router;
