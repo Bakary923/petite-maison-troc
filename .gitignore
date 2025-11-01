@@ -1,0 +1,45 @@
+# Node.js dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environnements/Secrets
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Outillage local
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS system files
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Coverage/tests
+coverage/
+.nyc_output/
+
+# Frontend - Vite/React
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Backend
+backend/api-service/node_modules/
+backend/api-service/dist/
+backend/api-service/build/
+backend/api-service/coverage/
