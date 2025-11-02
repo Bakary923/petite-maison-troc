@@ -53,17 +53,18 @@ export function AuthProvider({ children }) {
 
     const data = await res.json();
 
+    // ✅ IMPORTANT : Mets à jour le contexte ET le localStorage
     if (data.token) {
       localStorage.setItem('token', data.token);
       setToken(data.token);
     }
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
+      setUser(data.user);  // ✅ AJOUT : Met à jour le state user
       return data.user;
     }
 
-    // fallback login attempt
+    // Fallback login attempt (si register n'a pas renvoyé user/token)
     try {
       const ldRes = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
@@ -78,7 +79,7 @@ export function AuthProvider({ children }) {
         }
         if (ld.user) {
           localStorage.setItem('user', JSON.stringify(ld.user));
-          setUser(ld.user);
+          setUser(ld.user);  // ✅ AJOUT : Met à jour le state user
           return ld.user;
         }
       }

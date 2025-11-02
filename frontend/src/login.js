@@ -1,14 +1,16 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from './contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Signup from './signup';
 
 export default function Login() {
   const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showSignup, setShowSignup] = useState(false); // false => afficher login par défaut
+  const [showSignup, setShowSignup] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,7 +18,8 @@ export default function Login() {
     setLoading(true);
     try {
       await login({ email: email.trim(), password });
-      // en cas de succès AuthContext mettra user -> AppInner s'affichera automatiquement
+      // Redirection vers l'accueil après connexion réussie
+      navigate('/');
     } catch (err) {
       setError(err.message || 'Échec de la connexion');
     } finally {
@@ -28,7 +31,7 @@ export default function Login() {
     return (
       <Signup
         onCancel={() => setShowSignup(false)}
-        onSuccess={() => setShowSignup(false)}
+        onSuccess={() => navigate('/')}  // ✅ PASSE navigate au Signup
       />
     );
   }

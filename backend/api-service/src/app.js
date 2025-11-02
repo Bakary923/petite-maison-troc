@@ -15,7 +15,7 @@ const cors = require('cors');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// créer/servir le dossier uploads (pour les images)
+// Créer/servir le dossier uploads (pour les images)
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use('/uploads', express.static(uploadsDir));
@@ -33,12 +33,14 @@ const authRoutes = require('./auth/auth.routes');
 // Branche les routes /api/auth (ex: /api/auth/register, /api/auth/login)
 app.use('/api/auth', authRoutes);
 
-// Import du middleware d'authentification
-const authMiddleware = require('./middlewares/auth');
+// ⚠️ IMPORTANT : NE PAS appliquer le middleware d'auth à TOUTES les routes /api/annonces
+// À la place, les annonces.routes.js gérera lui-même l'authentification
+// GET /api/annonces sera PUBLIC
+// POST/PUT/DELETE /api/annonces seront PROTÉGÉS
 
-// Import et branchement des routes d'annonces AVEC protection par JWT
+// Import et branchement des routes d'annonces (SANS middleware global)
 const annoncesRoutes = require('./annonces/annonces.routes');
-app.use('/api/annonces', authMiddleware, annoncesRoutes);
+app.use('/api/annonces', annoncesRoutes);
 
 // Route d'accueil (optionnelle, pour tester que l'API répond bien sur /)
 app.get('/', (req, res) => {
@@ -57,4 +59,10 @@ Ce fichier est le point d'entrée principal de l'app :
 - Import middlewares globaux
 - Brancher tous les modules de routes (auth, annonces...)
 - Initialiser et démarrer Express.
+
+IMPORTANT :
+- Les routes /api/auth sont PUBLIQUES
+- Les routes /api/annonces gèrent eux-mêmes leur authentification :
+  - GET /api/annonces → PUBLIC (accessible sans JWT)
+  - POST/PUT/DELETE /api/annonces → PROTÉGÉ (nécessite JWT)
 */

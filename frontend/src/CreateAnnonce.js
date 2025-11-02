@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from './contexts/AuthContext';
+import { useNavigate } from 'react-router-dom'; // ✅ AJOUT
 
 export default function CreateAnnonce({ onCreate, onCancel }) {
   const { authFetch } = useContext(AuthContext);
+  const navigate = useNavigate(); // ✅ AJOUT
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -56,6 +58,13 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
       setDescription('');
       setImageFile(null);
       if (typeof onCancel === 'function') onCancel();
+
+      // ✅ REDIRECTION VERS /annonces APRÈS 500ms
+      setTimeout(() => {
+        console.log('[DEBUG] Redirection vers /annonces');
+        navigate('/annonces');
+      }, 500);
+
     } catch (err) {
       setError(err.message || 'Erreur lors de la création');
     } finally {

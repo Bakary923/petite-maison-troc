@@ -14,6 +14,7 @@ const pool = require('../config/database');
   - Vérifie que l'email n'est pas déjà pris
   - Hache le mot de passe
   - Enregistre l'utilisateur en base
+  - ✅ GÉNÈRE UN TOKEN JWT ET LE RETOURNE
   - Gère les erreurs (champs manquants, email déjà pris, erreur serveur)
 */
 exports.register = async (req, res) => {
@@ -30,12 +31,39 @@ exports.register = async (req, res) => {
     // Hachage du mot de passe
     const hashed = await bcrypt.hash(password, 10);
     // Insertion de l'utilisateur en base
-    await pool.query(
-      'INSERT INTO users (username, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, NOW())',
+    const result = await pool.query(
+      'INSERT INTO users (username, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, username, email, role',
       [username, email, hashed, 'user']
     );
-    return res.status(201).json({ message: 'Inscription réussie !' });
+    
+    // ✅ Récupère l'user créé
+    const user = result.rows[0];
+    
+    // ✅ GÉNÈRE UN TOKEN JWT
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    // ✅ RETOURNE LE TOKEN ET L'USER (comme le login)
+    return res.status(201).json({
+      message: 'Inscription réussie !',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      },
+      token: token
+    });
   } catch (err) {
+    console.error('[ERROR REGISTER]', err);
     return res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
@@ -111,6 +139,7 @@ exports.login = async (req, res) => {
 
   } catch (err) {
     // En cas d'erreur interne (base down, bug JS...), on renvoie une erreur 500 générique
+    console.error('[ERROR LOGIN]', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
@@ -120,6 +149,7 @@ Ce contrôleur :
 - Récupère et vérifie les infos d'identification transmises par l'utilisateur
 - Protège les accès via le mot de passe hashé et vérifié avec bcrypt
 - Génère un token JWT sécurisé en cas de succès (clé secrète JWT_SECRET dans le .env)
-- Renvoie toutes les infos utiles à l'utilisateur sans jamais exposer le mot de passe hashé
+- Retourne toutes les infos utiles à l'utilisateur sans jamais exposer le mot de passe hashé
+- ✅ REGISTER ET LOGIN RETOURNENT TOUS LES DEUX LE TOKEN ET L'USER
 - Gère les erreurs de façon claire pour front et debug
 */

@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from './contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Signup({ onCancel, onSuccess }) {
   const { register } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,10 +25,20 @@ export default function Signup({ onCancel, onSuccess }) {
     }
     setLoading(true);
     try {
+      console.log('[DEBUG SIGNUP] Appel register avec:', { username, email });
+      
       const user = await register({ username: username.trim(), email: email.trim(), password });
-      // si register renvoie l'user (ou login automatique a réussi), on ferme le signup
-      if (typeof onSuccess === 'function') onSuccess();
+      
+      console.log('[DEBUG SIGNUP] Register réussi, user:', user);
+      
+      // ✅ Redirection forcée
+      setTimeout(() => {
+        console.log('[DEBUG SIGNUP] Redirection vers /');
+        navigate('/');
+      }, 500);
+      
     } catch (err) {
+      console.error('[ERROR SIGNUP]', err);
       setError(err.message || 'Erreur lors de l\'inscription');
     } finally {
       setLoading(false);
