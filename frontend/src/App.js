@@ -142,8 +142,23 @@ function AppInner() {
                     </div>
                   )}
                   
-                  {/* Affiche le nom de l'auteur de l'annonce */}
-                  <small>Par {a.username}</small>
+                  {/* Affiche le nom de l'auteur ET la date de création */}
+                  <small>
+                    {/* Nom de l'auteur */}
+                    Par {a.username} 
+                    
+                    {/* AFFICHAGE DE LA DATE ET HEURE - VÉRIFIE D'ABORD SI createdAt EXISTE */}
+                    {a.createdAt && (
+                      <span style={{ marginLeft: 8, color: '#666' }}>
+                        {/* Séparateur visuel */}
+                        • {/* Convertit la date ISO en format lisible français */}
+                        {new Date(a.createdAt).toLocaleString('fr-FR', { 
+                          dateStyle: 'short',    // Format court pour la date (ex: 02/11/2025)
+                          timeStyle: 'short'     // Format court pour l'heure (ex: 18:55)
+                        })}
+                      </span>
+                    )}
+                  </small>
                 </li>
               ))}
             </ul>
