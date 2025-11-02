@@ -1,159 +1,123 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const router = express.Router();
-const auth = require('../middlewares/auth'); //Middleware d'authentification JWT
 
-// Route protégée : création d'une annonce pour un utilisateur authentifié.
-router.post('/', auth, async (req, res) => {
-  const { titre, description } = req.body;
-  const userId = req.user.id;
-  if (!titre) {
-    return res.status(400).json({ error: 'Titre obligatoire' });
-  }
-  try {
-    await req.app.locals.pool.query(
-      'INSERT INTO annonces (user_id, titre, description) VALUES ($1, $2, $3)',
-      [userId, titre, description]
-    );
-    res.status(201).json({ message: 'Annonce créée !' });
-  } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur' });
+// upload directory (crée si nécessaire)
+const uploadDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+// multer storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`);
   }
 });
+const upload = multer({ storage });
 
-// Route GET : liste toutes les annonces de la table, accessibles à tous
+// stockage temporaire en mémoire (fallback)
+const store = [];
+
+// Helper : construire URL complète d'image
+function toImageUrl(req, imagePath) {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  return `${req.protocol}://${req.get('host')}${imagePath}`;
+}
+
+// GET /api/annonces -> liste toutes les annonces (DB si configurée)
 router.get('/', async (req, res) => {
+  console.log('[DEBUG GET] req.user:', req.user); // DEBUG
   try {
-    const result = await req.app.locals.pool.query(
-      'SELECT annonces.*, users.username FROM annonces JOIN users ON annonces.user_id = users.id ORDER BY annonces.created_at DESC'
-    );
-    res.json({ annonces: result.rows });
+    const pool = req.app.locals.pool;
+    if (pool) {
+      // Ajuste la requête si ton schéma diffère (noms de table/colonnes)
+      const q = `
+        SELECT a.id, a.titre, a.description, a.image, a.created_at, u.username
+        FROM annonces a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.created_at DESC
+      `;
+      const result = await pool.query(q);
+      const annonces = result.rows.map(r => ({
+        id: r.id,
+        titre: r.titre,
+        description: r.description,
+        image: toImageUrl(req, r.image),
+        username: r.username,
+        createdAt: r.created_at
+      }));
+      return res.json({ annonces });
+    }
+    // fallback mémoire
+    return res.json({ annonces: store });
   } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur.' });
+    console.error('GET /api/annonces error', err);
+    return res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-// GET /api/annonces/mes : annonces créées par l'utilisateur connecté
-router.get('/mes', auth, async (req, res) => {
-  console.log("req.user =", req.user);
+// POST /api/annonces -> crée une annonce (JSON ou multipart/form-data 'image')
+router.post('/', upload.single('image'), async (req, res) => {
+  console.log('[DEBUG POST] req.user:', req.user); // DEBUG - LIGNE AJOUTÉE
   try {
-    const userId = req.user.id;
-    const result = await req.app.locals.pool.query(
-      'SELECT * FROM annonces WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId]
-    );
-    res.json({ annonces: result.rows });
+    const body = req.body || {};
+    const titre = (body.titre || '').trim();
+    const description = (body.description || '').trim();
+
+    if (!titre || !description) {
+      return res.status(400).json({ error: 'titre et description requis' });
+    }
+
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+    const pool = req.app.locals.pool;
+
+    let created;
+
+    if (pool) {
+      // insère en base (ajuste noms de colonnes si nécessaire)
+      const userId = req.user?.id || null;
+      console.log('[DEBUG POST] userId extrait:', userId); // DEBUG
+      console.log('[DEBUG POST] username extrait:', req.user?.username); // DEBUG
+      
+      const insertQ = `
+        INSERT INTO annonces (titre, description, image, user_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, titre, description, image, created_at
+      `;
+      const values = [titre, description, imagePath, userId];
+      const result = await pool.query(insertQ, values);
+      const row = result.rows[0];
+      created = {
+        id: row.id,
+        titre: row.titre,
+        description: row.description,
+        image: toImageUrl(req, row.image),
+        username: req.user?.username || null,
+        createdAt: row.created_at
+      };
+      console.log('[DEBUG POST] Annonce créée:', created); // DEBUG
+    } else {
+      // fallback mémoire
+      created = {
+        id: store.length ? (store[0].id || Date.now()) + 1 : Date.now(),
+        titre,
+        description,
+        image: toImageUrl(req, imagePath),
+        username: req.user?.username || 'inconnu',
+        createdAt: new Date().toISOString()
+      };
+      store.unshift(created);
+    }
+
+    // renvoyer l'objet créé (frontend l'ajoutera immédiatement)
+    return res.status(201).json({ annonce: created });
   } catch (err) {
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
-// GET /api/annonces/:id : affiche le détail d'une annonce précise (publique)
-router.get('/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
-    return res.status(400).json({ error: "ID invalide" });
-  }
-  try {
-    const result = await req.app.locals.pool.query(
-      'SELECT annonces.*, users.username FROM annonces JOIN users ON annonces.user_id = users.id WHERE annonces.id = $1',
-      [id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Annonce non trouvée" });
-    }
-    res.json({ annonce: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
-// DELETE /api/annonces/:id : supprime une annonce (propriétaire uniquement)
-router.delete('/:id', auth, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
-    return res.status(400).json({ error: "ID invalide" });
-  }
-
-  try {
-    const userId = req.user.id;
-
-    // Vérifie d'abord que l'annonce existe et appartient à l'utilisateur
-    const check = await req.app.locals.pool.query(
-      'SELECT user_id FROM annonces WHERE id = $1',
-      [id]
-    );
-    if (check.rows.length === 0) {
-      return res.status(404).json({ error: "Annonce non trouvée" });
-    }
-    if (check.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: "Accès refusé" });
-    }
-
-    // Suppression de l'annonce
-    await req.app.locals.pool.query(
-      'DELETE FROM annonces WHERE id = $1',
-      [id]
-    );
-    res.json({ message: "Annonce supprimée" });
-  } catch (err) {
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
-// PUT /api/annonces/:id : modifie une annonce (propriétaire uniquement)
-// Utilise PUT pour remplacer/mettre à jour les champs fournis (titre et/ou description).
-router.put('/:id', auth, async (req, res) => {
-  // Récupération et validation de l'id
-  const id = parseInt(req.params.id, 10);
-  if (Number.isNaN(id)) {
-    return res.status(400).json({ error: "ID invalide" });
-  }
-
-  // Champs modifiables attendus dans le body
-  const { titre, description } = req.body;
-  // Si aucun champ fourni, on refuse la requête
-  if (titre === undefined && description === undefined) {
-    return res.status(400).json({ error: "Aucun champ fourni pour la mise à jour" });
-  }
-
-  try {
-    const userId = req.user.id;
-
-    // Vérifier que l'annonce existe et récupérer son propriétaire
-    const check = await req.app.locals.pool.query(
-      'SELECT user_id FROM annonces WHERE id = $1',
-      [id]
-    );
-    if (check.rows.length === 0) {
-      return res.status(404).json({ error: "Annonce non trouvée" });
-    }
-    if (check.rows[0].user_id !== userId) {
-      return res.status(403).json({ error: "Accès refusé" });
-    }
-
-    // Construction dynamique de la requête UPDATE selon les champs fournis
-    const sets = [];
-    const values = [];
-    let idx = 1;
-    if (titre !== undefined) {
-      sets.push(`titre = $${idx++}`);
-      values.push(titre);
-    }
-    if (description !== undefined) {
-      sets.push(`description = $${idx++}`);
-      values.push(description);
-    }
-    // Ajout de l'id en dernier paramètre
-    values.push(id);
-
-    const query = `UPDATE annonces SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`;
-
-    // Exécution de la mise à jour et retour de l'annonce modifiée
-    const result = await req.app.locals.pool.query(query, values);
-    res.json({ annonce: result.rows[0] });
-  } catch (err) {
-    // Erreur serveur générique (ne pas exposer err.message en prod)
-    res.status(500).json({ error: "Erreur serveur" });
+    console.error('POST /api/annonces error', err);
+    return res.status(500).json({ error: 'Erreur interne' });
   }
 });
 

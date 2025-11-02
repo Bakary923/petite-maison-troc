@@ -5,8 +5,24 @@ require('dotenv').config();
 const express = require('express');
 const app = express();
 
+const path = require('path');
+const fs = require('fs');
+
+// Ajouter cet import (manquant)
+const cors = require('cors');
+
 // Permet à Express d'analyser automatiquement les corps de requêtes JSON (très utile pour toutes les routes POST/PUT)
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// créer/servir le dossier uploads (pour les images)
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+// Autoriser le frontend (remplace l'URL si besoin)
+// Pour autoriser toutes les origines utiliser app.use(cors());
+app.use(cors({ origin: 'http://localhost:3001' }));
 
 // Import et configuration de la base de données (pool partagé)
 const pool = require('./config/database');
@@ -17,9 +33,12 @@ const authRoutes = require('./auth/auth.routes');
 // Branche les routes /api/auth (ex: /api/auth/register, /api/auth/login)
 app.use('/api/auth', authRoutes);
 
-// Import et branchement des routes d'annonces
+// Import du middleware d'authentification
+const authMiddleware = require('./middlewares/auth');
+
+// Import et branchement des routes d'annonces AVEC protection par JWT
 const annoncesRoutes = require('./annonces/annonces.routes');
-app.use('/api/annonces', annoncesRoutes);
+app.use('/api/annonces', authMiddleware, annoncesRoutes);
 
 // Route d'accueil (optionnelle, pour tester que l'API répond bien sur /)
 app.get('/', (req, res) => {
