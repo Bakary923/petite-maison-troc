@@ -8,8 +8,12 @@ const app = express();
 const path = require('path');
 const fs = require('fs');
 
-// Ajouter cet import (manquant)
+// Import des middlewares de sécurité et CORS
+const helmet = require('helmet'); // Ajoute des en-têtes HTTP de sécurité
 const cors = require('cors');
+
+// Middleware global : ajoute des en-têtes de sécurité à toutes les réponses HTTP
+app.use(helmet());
 
 // Permet à Express d'analyser automatiquement les corps de requêtes JSON (très utile pour toutes les routes POST/PUT)
 app.use(express.json());
@@ -56,7 +60,7 @@ app.listen(PORT, () => {
 /*
 Ce fichier est le point d'entrée principal de l'app :
 - Chargement .env
-- Import middlewares globaux
+- Import middlewares globaux (sécurité, parsing JSON, CORS, fichiers statiques...)
 - Brancher tous les modules de routes (auth, annonces...)
 - Initialiser et démarrer Express.
 
