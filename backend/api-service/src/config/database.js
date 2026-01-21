@@ -12,5 +12,15 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD  // mot de passe DB, ici 'devpass'
 });
 
+// On teste la connexion au démarrage pour vérifier que tout est bien configuré
+pool
+  .query('SELECT 1') // petite requête de test
+  .then(() => {
+    console.log('✅ Connexion PostgreSQL OK');
+  })
+  .catch((err) => {
+    console.error('❌ Erreur connexion PostgreSQL', err); // log clair en cas de problème
+  });
+  
 // On exporte cette variable pour l'utiliser dans tous les contrôleurs facilement
 module.exports = pool;
