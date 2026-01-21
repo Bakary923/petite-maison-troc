@@ -12,8 +12,13 @@ const fs = require('fs');
 const helmet = require('helmet'); // Ajoute des en-têtes HTTP de sécurité
 const cors = require('cors');
 
-// Middleware global : ajoute des en-têtes de sécurité à toutes les réponses HTTP
-app.use(helmet());
+// Middleware global Helmet : ajoute plusieurs en-têtes HTTP de sécurité (XSS, clickjacking, etc.)
+// Ici, on désactive certaines politiques trop strictes en DEV pour ne pas bloquer le front :
+app.use(helmet({
+  contentSecurityPolicy: false,        // CSP désactivée en développement : évite de casser le chargement des ressources (images, scripts) tant qu’elle n’est pas finement configurée
+  crossOriginResourcePolicy: false,    // Désactive la politique qui bloque par défaut les ressources chargées depuis une autre origine (utile ici pour les images servies au front)
+  crossOriginEmbedderPolicy: false     // Désactive une politique d’isolation stricte des ressources intégrées (souvent inutile en dev, et peut bloquer certains assets)
+}));
 
 // Permet à Express d'analyser automatiquement les corps de requêtes JSON (très utile pour toutes les routes POST/PUT)
 app.use(express.json());

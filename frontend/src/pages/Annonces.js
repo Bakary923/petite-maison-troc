@@ -20,6 +20,7 @@ export default function Annonces() {
       const res = await fetch('http://localhost:3000/api/annonces');
       if (!res.ok) throw new Error('Erreur lors du chargement');
       const data = await res.json();
+      console.log(data.annonces);
       setAnnonces(data.annonces || []);
     } catch (err) {
       setError(err.message);
@@ -264,8 +265,9 @@ const styles = {
     listStyle: 'none'
   },
   image: {
-    width: '100%',
+    width: '200px',
     height: '200px',
+    border: '3px solid red',
     objectFit: 'cover',
     borderRadius: '5px',
     marginBottom: '10px'

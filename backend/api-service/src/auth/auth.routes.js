@@ -49,7 +49,7 @@ const validateLogin = [
 // Limite réaliste : max 10 tentatives de login par IP toutes les 15 minutes
 // Objectif : ralentir / bloquer les attaques par force brute sur /login
 const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // fenêtre de 15 minutes
+  windowMs: 10 * 60 * 1000, // fenêtre de 15 minutes
   max: 20,                  // 10 requêtes max par IP dans cette fenêtre
   message: { error: 'Trop de tentatives de connexion, réessayez plus tard.' },
   standardHeaders: true,    // ajoute les en-têtes RateLimit-* standard
