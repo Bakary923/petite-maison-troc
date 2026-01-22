@@ -70,42 +70,38 @@ export default function Annonces() {
   };
 
   // ✅ ÉDITION - SAUVEGARDER (CORRIGÉ)
-  const handleEditSave = async (annonceId) => {
+    const handleEditSave = async (annonceId) => {
     try {
       const formData = new FormData();
       formData.append('titre', editForm.titre);
       formData.append('description', editForm.description);
-
-      console.log('[DEBUG EDIT] Envoi PUT pour annonce:', annonceId);
 
       const res = await authFetch(`http://localhost:3000/api/annonces/${annonceId}`, {
         method: 'PUT',
         body: formData
       });
 
-      console.log('[DEBUG EDIT] Réponse status:', res.status);
-
       if (!res.ok) {
-        const data = await res.json();
-        console.error('[ERROR EDIT] Erreur:', data);
-        throw new Error(data.error || `HTTP ${res.status}`);
+        const body = await res.json().catch(() => ({}));
+        const msg =
+          body.error ||
+          body.message ||
+          (body.errors && body.errors[0]?.msg) ||   // 1er message express-validator
+          `HTTP ${res.status}`;
+        throw new Error(msg);
       }
 
       const data = await res.json();
-      console.log('[DEBUG EDIT] Annonce modifiée:', data.annonce);
-      
-      // ✅ Met à jour l'annonce AVEC les timestamps
       setAnnonces(prev => prev.map(a => a.id === annonceId ? data.annonce : a));
-
-      // Arrête l'édition
       setEditingId(null);
       setEditForm({ titre: '', description: '' });
       alert('Annonce modifiée avec succès !');
     } catch (err) {
       console.error('[ERROR EDIT]', err);
-      alert(`Erreur : ${err.message}`);
+      alert(`Erreur : ${err.message}`);  // affichera le vrai texte au lieu de HTTP 400
     }
   };
+
 
   if (loading) return <p style={styles.center}>⏳ Chargement...</p>;
   if (error) return <p style={{...styles.center, color: 'red'}}>❌ Erreur : {error}</p>;

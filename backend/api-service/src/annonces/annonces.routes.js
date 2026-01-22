@@ -164,89 +164,93 @@ router.post(
 // ============================================================================
 // PUT /api/annonces/:id -> Modifie une annonce (PROTÉGÉ - besoin du JWT)
 // ============================================================================
-router.put('/:id', authMiddleware, upload.single('image'), async (req, res) => {
-  console.log('[DEBUG PUT] req.user:', req.user);
-  try {
-    const annonceId = req.params.id;
-    const userId = req.user?.id;
-    const body = req.body || {};
-    const titre = (body.titre || '').trim();
-    const description = (body.description || '').trim();
-    
-    if (!titre || !description) {
-      return res.status(400).json({ error: 'titre et description requis' });
-    }
+router.put(
+  '/:id',
+  authMiddleware,          // vérifie le JWT
+  upload.single('image'),  // gère l'upload d'image
+  validateAnnonce,         // vérifie titre + description (présents, longueurs)
+  async (req, res) => {
+    console.log('[DEBUG PUT] req.user:', req.user);
+    try {
+      const annonceId = req.params.id;
+      const userId = req.user?.id;
+      const body = req.body || {};
+      const titre = (body.titre || '').trim();
+      const description = (body.description || '').trim();
 
-    const pool = req.app.locals.pool;
+      // plus besoin du if (!titre || !description) ici : géré par validateAnnonce
 
-    if (!pool) {
-      const annonce = store.find(a => a.id === parseInt(annonceId));
-      if (!annonce) {
+      const pool = req.app.locals.pool;
+
+      if (!pool) {
+        const annonce = store.find(a => a.id === parseInt(annonceId));
+        if (!annonce) {
+          return res.status(404).json({ error: 'Annonce non trouvée' });
+        }
+        if (annonce.username !== req.user?.username) {
+          return res.status(403).json({ error: 'Non autorisé' });
+        }
+        annonce.titre = titre;
+        annonce.description = description;
+        annonce.updatedAt = new Date().toISOString();
+        return res.json({ annonce });
+      }
+
+      const checkQ = 'SELECT user_id FROM annonces WHERE id = $1';
+      const checkResult = await pool.query(checkQ, [annonceId]);
+
+      if (checkResult.rows.length === 0) {
         return res.status(404).json({ error: 'Annonce non trouvée' });
       }
-      if (annonce.username !== req.user?.username) {
-        return res.status(403).json({ error: 'Non autorisé' });
+
+      const annonce = checkResult.rows[0];
+      if (annonce.user_id !== userId) {
+        return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à modifier cette annonce' });
       }
-      annonce.titre = titre;
-      annonce.description = description;
-      annonce.updatedAt = new Date().toISOString();
-      return res.json({ annonce });
+
+      let updateQ;
+      let values;
+
+      if (req.file) {
+        const imagePath = `/uploads/${req.file.filename}`;
+        updateQ = `
+          UPDATE annonces 
+          SET titre = $1, description = $2, image = $3, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
+          WHERE id = $4
+          RETURNING id, titre, description, image, created_at, updated_at
+        `;
+        values = [titre, description, imagePath, annonceId];
+      } else {
+        updateQ = `
+          UPDATE annonces 
+          SET titre = $1, description = $2, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
+          WHERE id = $3
+          RETURNING id, titre, description, image, created_at, updated_at
+        `;
+        values = [titre, description, annonceId];
+      }
+
+      const result = await pool.query(updateQ, values);
+      const row = result.rows[0];
+
+      const updated = {
+        id: row.id,
+        titre: row.titre,
+        description: row.description,
+        image: toImageUrl(req, row.image),
+        username: req.user?.username,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+
+      console.log('[DEBUG PUT] Annonce modifiée:', updated);
+      return res.json({ annonce: updated });
+    } catch (err) {
+      console.error('PUT /api/annonces error', err);
+      return res.status(500).json({ error: 'Erreur interne' });
     }
-
-    const checkQ = 'SELECT user_id FROM annonces WHERE id = $1';
-    const checkResult = await pool.query(checkQ, [annonceId]);
-
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Annonce non trouvée' });
-    }
-
-    const annonce = checkResult.rows[0];
-    if (annonce.user_id !== userId) {
-      return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à modifier cette annonce' });
-    }
-
-    let updateQ;
-    let values;
-    
-    if (req.file) {
-      const imagePath = `/uploads/${req.file.filename}`;
-      updateQ = `
-        UPDATE annonces 
-        SET titre = $1, description = $2, image = $3, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
-        WHERE id = $4
-        RETURNING id, titre, description, image, created_at, updated_at
-      `;
-      values = [titre, description, imagePath, annonceId];
-    } else {
-      updateQ = `
-        UPDATE annonces 
-        SET titre = $1, description = $2, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
-        WHERE id = $3
-        RETURNING id, titre, description, image, created_at, updated_at
-      `;
-      values = [titre, description, annonceId];
-    }
-
-    const result = await pool.query(updateQ, values);
-    const row = result.rows[0];
-    
-    const updated = {
-      id: row.id,
-      titre: row.titre,
-      description: row.description,
-      image: toImageUrl(req, row.image),
-      username: req.user?.username,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at
-    };
-
-    console.log('[DEBUG PUT] Annonce modifiée:', updated);
-    return res.json({ annonce: updated });
-  } catch (err) {
-    console.error('PUT /api/annonces error', err);
-    return res.status(500).json({ error: 'Erreur interne' });
   }
-});
+);
 
 // ============================================================================
 // DELETE /api/annonces/:id -> Supprime une annonce (PROTÉGÉ - besoin du JWT)
