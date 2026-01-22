@@ -146,7 +146,7 @@ export default function Signup({ onCancel, onSuccess }) {
               />
             </div>
 
-            {/* BOUTONS */}
+            {/* BOUTON SUBMIT */}
             <button
               type="submit"
               disabled={loading}
@@ -195,18 +195,19 @@ export default function Signup({ onCancel, onSuccess }) {
 
 const styles = {
   page: {
-    minHeight: '100vh',
     background:
       'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)',
     color: '#F9FAFB',
-    padding: '60px 20px',
+    minHeight: '100vh',
     display: 'flex',
-    alignItems: 'center',
+    flexDirection: 'column',
     justifyContent: 'center',
+    padding: '40px 20px',
   },
   container: {
     width: '100%',
     maxWidth: '420px',
+    margin: '0 auto',
   },
   formWrapper: {
     borderRadius: 28,

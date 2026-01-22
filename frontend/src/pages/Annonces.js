@@ -8,7 +8,6 @@ export default function Annonces() {
   const [annonces, setAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ titre: '', description: '' });
 
@@ -94,15 +93,28 @@ export default function Annonces() {
     }
   };
 
-  if (loading) return <div style={styles.container}><p style={styles.centerText}>⏳ Chargement...</p></div>;
-  if (error) return <div style={styles.container}><p style={{...styles.centerText, color: '#ef4444'}}>❌ Erreur : {error}</p></div>;
+  if (loading) return (
+    <div style={styles.page}>
+      <div style={styles.container}>
+        <p style={styles.centerText}>⏳ Chargement...</p>
+      </div>
+    </div>
+  );
+
+  if (error) return (
+    <div style={styles.page}>
+      <div style={styles.container}>
+        <p style={{...styles.centerText, color: '#ef4444'}}>❌ Erreur : {error}</p>
+      </div>
+    </div>
+  );
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         {/* HEADER */}
         <div style={styles.header}>
-          <div>
+          <div style={styles.headerContent}>
             <h1 style={styles.title}>Annonces disponibles</h1>
             <p style={styles.subtitle}>Explorez les objets à échanger ou donner</p>
           </div>
@@ -122,12 +134,12 @@ export default function Annonces() {
                 e.target.style.transform = 'translateY(0)';
               }}
             >
-              Créer une annonce
+              + Créer une annonce
             </button>
           ) : (
             <p style={styles.loginPrompt}>
               <a onClick={() => navigate('/login')} style={styles.link}>Connecte-toi</a> ou{' '}
-              <a onClick={() => navigate('/signup')} style={styles.link}>inscris-toi</a> pour créer une annonce
+              <a onClick={() => navigate('/signup')} style={styles.link}>inscris-toi</a> pour créer
             </p>
           )}
         </div>
@@ -135,7 +147,7 @@ export default function Annonces() {
         {/* GRID D'ANNONCES */}
         {annonces.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={styles.emptyText}>Aucune annonce pour le moment</p>
+            <p style={styles.emptyText}>✨ Aucune annonce pour le moment</p>
             <p style={styles.emptySubtext}>Soyez le premier à proposer quelque chose !</p>
           </div>
         ) : (
@@ -145,6 +157,7 @@ export default function Annonces() {
                 {editingId === a.id ? (
                   // MODE ÉDITION
                   <div style={styles.editForm}>
+                    <h3 style={styles.editTitle}>Modifier l'annonce</h3>
                     <input
                       type="text"
                       value={editForm.titre}
@@ -161,23 +174,37 @@ export default function Annonces() {
                     <div style={styles.editActions}>
                       <button
                         onClick={() => handleEditSave(a.id)}
-                        style={{...styles.button, background: 'rgba(34,197,94,0.3)', borderColor: 'rgba(34,197,94,0.7)', color: '#bbf7d0'}}
+                        style={styles.saveBtn}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = 'rgba(34,197,94,0.5)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'rgba(34,197,94,0.3)';
+                        }}
                       >
-                        Enregistrer
+                        ✓ Enregistrer
                       </button>
                       <button
                         onClick={handleEditCancel}
-                        style={{...styles.button, background: 'rgba(107,114,128,0.3)', borderColor: 'rgba(107,114,128,0.7)', color: '#d1d5db'}}
+                        style={styles.cancelBtn}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = 'rgba(107,114,128,0.5)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'rgba(107,114,128,0.3)';
+                        }}
                       >
-                        Annuler
+                        ✕ Annuler
                       </button>
                     </div>
                   </div>
                 ) : (
                   // MODE AFFICHAGE
-                  <div>
+                  <div style={styles.cardInner}>
                     {a.image && (
-                      <img src={a.image} alt={a.titre} style={styles.image} />
+                      <div style={styles.imageWrapper}>
+                        <img src={a.image} alt={a.titre} style={styles.image} />
+                      </div>
                     )}
                     
                     <div style={styles.cardContent}>
@@ -185,17 +212,15 @@ export default function Annonces() {
                       <p style={styles.cardDescription}>{a.description}</p>
 
                       <div style={styles.cardMeta}>
-                        <span style={styles.author}>Par <strong>{a.username}</strong></span>
+                        <span style={styles.author}>👤 <strong>{a.username}</strong></span>
                         {a.createdAt && (
                           <span style={styles.date}>
-                            {new Date(a.createdAt).toLocaleString('fr-FR', {
+                            🕐 {new Date(a.createdAt).toLocaleString('fr-FR', {
                               dateStyle: 'short',
                               timeStyle: 'short'
                             })}
                             {a.updatedAt && new Date(a.updatedAt).getTime() > new Date(a.createdAt).getTime() && (
-                              <span style={styles.modified}>
-                                (modifié)
-                              </span>
+                              <span style={styles.modified}> (modifié)</span>
                             )}
                           </span>
                         )}
@@ -205,7 +230,7 @@ export default function Annonces() {
                         <div style={styles.actions}>
                           <button
                             onClick={() => handleEditStart(a)}
-                            style={{...styles.button, background: 'rgba(59,130,246,0.3)', borderColor: 'rgba(59,130,246,0.7)', color: '#bfdbfe'}}
+                            style={styles.editBtn}
                             onMouseEnter={(e) => {
                               e.target.style.background = 'rgba(59,130,246,0.5)';
                             }}
@@ -213,11 +238,11 @@ export default function Annonces() {
                               e.target.style.background = 'rgba(59,130,246,0.3)';
                             }}
                           >
-                            Modifier
+                            ✏️ Modifier
                           </button>
                           <button
                             onClick={() => handleDelete(a.id)}
-                            style={{...styles.button, background: 'rgba(239,68,68,0.3)', borderColor: 'rgba(239,68,68,0.7)', color: '#fecaca'}}
+                            style={styles.deleteBtn}
                             onMouseEnter={(e) => {
                               e.target.style.background = 'rgba(239,68,68,0.5)';
                             }}
@@ -225,7 +250,7 @@ export default function Annonces() {
                               e.target.style.background = 'rgba(239,68,68,0.3)';
                             }}
                           >
-                            Supprimer
+                            🗑️ Supprimer
                           </button>
                         </div>
                       )}
@@ -247,10 +272,10 @@ const styles = {
     background:
       'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)',
     color: '#F9FAFB',
-    padding: '40px 20px',
+    padding: '60px 20px 40px',
   },
   container: {
-    maxWidth: '1180px',
+    maxWidth: '1280px',
     margin: '0 auto',
   },
   header: {
@@ -259,9 +284,13 @@ const styles = {
     justifyContent: 'space-between',
     gap: 40,
     marginBottom: 60,
+    flexWrap: 'wrap',
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: 700,
     margin: '0 0 12px 0',
     color: '#F9FAFB',
@@ -299,70 +328,88 @@ const styles = {
   },
   emptyState: {
     textAlign: 'center',
-    padding: '80px 20px',
+    padding: '100px 20px',
     borderRadius: 20,
-    border: '1px solid rgba(31, 41, 55, 0.9)',
-    background: 'rgba(15, 23, 42, 0.96)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+    background: 'rgba(15, 23, 42, 0.5)',
   },
   emptyText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 600,
     margin: '0 0 8px 0',
+    color: '#F9FAFB',
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#9CA3AF',
     margin: 0,
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: 24,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+    gap: 28,
   },
   card: {
     borderRadius: 20,
-    border: '1px solid rgba(31, 41, 55, 0.9)',
-    background: 'rgba(15, 23, 42, 0.96)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+    background: 'rgba(31, 41, 55, 0.8)',
     overflow: 'hidden',
-    boxShadow: '0 18px 40px rgba(0, 0, 0, 0.7)',
+    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
     transition: 'all 0.3s ease',
     cursor: 'pointer',
   },
-  cardContent: {
-    padding: 20,
+  cardInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+  },
+  imageWrapper: {
+    width: '100%',
+    height: 220,
+    overflow: 'hidden',
+    background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(59,130,246,0.1))',
   },
   image: {
     width: '100%',
-    height: 200,
+    height: '100%',
     objectFit: 'cover',
+  },
+  cardContent: {
+    padding: 24,
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+    gap: 12,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: 600,
-    margin: '0 0 8px 0',
+    fontWeight: 700,
+    margin: 0,
     color: '#F9FAFB',
   },
   cardDescription: {
     fontSize: 14,
-    color: '#9CA3AF',
-    margin: '0 0 16px 0',
-    lineHeight: 1.5,
+    color: '#D1D5DB',
+    margin: 0,
+    lineHeight: 1.6,
+    flex: 1,
   },
   cardMeta: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottom: '1px solid rgba(31, 41, 55, 0.9)',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTop: '1px solid rgba(148, 163, 184, 0.2)',
   },
   author: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: '#BCD5E9',
+    fontWeight: 500,
   },
   date: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#9CA3AF',
   },
   modified: {
     color: '#f97316',
@@ -372,51 +419,101 @@ const styles = {
   actions: {
     display: 'flex',
     gap: 10,
-    flexWrap: 'wrap',
+    marginTop: 16,
   },
-  button: {
-    padding: '8px 14px',
-    borderRadius: 8,
-    border: '1px solid',
-    background: 'transparent',
-    fontSize: 12,
+  editBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'rgba(59,130,246,0.3)',
+    color: '#BFDBFE',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  deleteBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'rgba(239,68,68,0.3)',
+    color: '#FECACA',
+    fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   },
   editForm: {
-    padding: 20,
+    padding: 28,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 16,
+  },
+  editTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    margin: '0 0 8px 0',
+    color: '#F9FAFB',
   },
   input: {
     width: '100%',
-    padding: '10px 12px',
-    marginBottom: 12,
-    borderRadius: 8,
-    border: '1px solid rgba(31, 41, 55, 0.9)',
+    padding: '12px 16px',
+    borderRadius: 12,
+    border: '1px solid rgba(148, 163, 184, 0.3)',
     background: 'rgba(15, 23, 42, 0.8)',
     color: '#F9FAFB',
     fontSize: 14,
     fontFamily: 'inherit',
+    transition: 'all 0.2s ease',
   },
   textarea: {
     width: '100%',
-    height: 100,
-    padding: '10px 12px',
-    marginBottom: 12,
-    borderRadius: 8,
-    border: '1px solid rgba(31, 41, 55, 0.9)',
+    height: 120,
+    padding: '12px 16px',
+    borderRadius: 12,
+    border: '1px solid rgba(148, 163, 184, 0.3)',
     background: 'rgba(15, 23, 42, 0.8)',
     color: '#F9FAFB',
     fontSize: 14,
     fontFamily: 'inherit',
     resize: 'vertical',
+    transition: 'all 0.2s ease',
   },
   editActions: {
     display: 'flex',
-    gap: 10,
+    gap: 12,
+    marginTop: 8,
+  },
+  saveBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'rgba(34,197,94,0.3)',
+    color: '#BBEF5D0',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  cancelBtn: {
+    flex: 1,
+    padding: '10px 16px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'rgba(107,114,128,0.3)',
+    color: '#D1D5DB',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   centerText: {
     textAlign: 'center',
-    padding: '40px 20px',
+    padding: '80px 20px',
+    fontSize: 18,
+    color: '#9CA3AF',
   },
 };

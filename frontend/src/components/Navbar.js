@@ -22,7 +22,7 @@ export default function Navbar() {
           style={styles.logoContainer}
         >
           <div style={styles.logoMark} />
-          <span style={styles.logoText}>Maison du Troc</span>
+          <span style={styles.logoText}>Petite Maison Épouvante</span>
         </div>
 
         <div style={styles.menu}>
