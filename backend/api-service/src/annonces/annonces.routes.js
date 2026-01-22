@@ -7,6 +7,32 @@ const router = express.Router();
 // Import du middleware d'authentification
 const authMiddleware = require('../middlewares/auth');
 
+// On importe express-validator pour vérifier les données envoyées à l'API
+const { body, validationResult } = require('express-validator');
+
+// Middleware de validation pour la création d'annonce
+// - vérifie que le titre est présent et de longueur raisonnable
+// - vérifie que la description est présente et assez détaillée
+const validateAnnonce = [
+  body('titre')
+    .trim()
+    .notEmpty().withMessage('Le titre est requis')
+    .isLength({ min: 3, max: 100 }).withMessage('Le titre doit faire entre 3 et 100 caractères'),
+  body('description')
+    .trim()
+    .notEmpty().withMessage('La description est requise')
+    .isLength({ min: 10, max: 2000 }).withMessage('La description doit faire entre 10 et 2000 caractères'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Si la validation échoue, on renvoie une erreur 400 avec la liste des problèmes
+      return res.status(400).json({ errors: errors.array() });
+    }
+    // Si tout est bon, on passe à la suite (upload + logique métier)
+    next();
+  }
+];
+
 // ============================================================================
 // Configuration MULTER pour l'upload d'images
 // ============================================================================
@@ -69,66 +95,71 @@ router.get('/', async (req, res) => {
 // ============================================================================
 // POST /api/annonces -> Crée une annonce (PROTÉGÉ - besoin du JWT)
 // ============================================================================
-router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
-  console.log('[DEBUG POST] req.user:', req.user);
-  try {
-    const body = req.body || {};
-    const titre = (body.titre || '').trim();
-    const description = (body.description || '').trim();
+router.post(
+  '/',
+  authMiddleware,                 // 1) Vérifie le JWT
+  upload.single('image'),         // 2) Gère l’upload d’image
+  validateAnnonce,                // 3) Vérifie titre + description
+  async (req, res) => {           // 4) Logique métier si tout est OK
+    console.log('[DEBUG POST] req.user:', req.user);
+    try {
+      const body = req.body || {};
+      const titre = (body.titre || '').trim();
+      const description = (body.description || '').trim();
 
-    if (!titre || !description) {
-      return res.status(400).json({ error: 'titre et description requis' });
+      // plus besoin du if !titre/!description ici, c'est géré par validateAnnonce
+
+      const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+      const pool = req.app.locals.pool;
+
+      let created;
+
+      if (pool) {
+        const userId = req.user?.id || null;
+        console.log('[DEBUG POST] userId extrait:', userId);
+        console.log('[DEBUG POST] username extrait:', req.user?.username);
+        
+        const insertQ = `
+          INSERT INTO annonces (titre, description, image, user_id, created_at)
+          VALUES ($1, $2, $3, $4, NOW() AT TIME ZONE 'Europe/Paris')
+          RETURNING id, titre, description, image, created_at, updated_at
+        `;
+        const values = [titre, description, imagePath, userId];
+        const result = await pool.query(insertQ, values);
+        const row = result.rows[0];
+        
+        created = {
+          id: row.id,
+          titre: row.titre,
+          description: row.description,
+          image: toImageUrl(req, row.image),
+          username: req.user?.username || null,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        };
+        console.log('[DEBUG POST] Annonce créée:', created);
+      } else {
+        const now = new Date().toISOString();
+        created = {
+          id: store.length ? (store[0].id || Date.now()) + 1 : Date.now(),
+          titre,
+          description,
+          image: toImageUrl(req, imagePath),
+          username: req.user?.username || 'inconnu',
+          createdAt: now,
+          updatedAt: now
+        };
+        store.unshift(created);
+      }
+
+      return res.status(201).json({ annonce: created });
+    } catch (err) {
+      console.error('POST /api/annonces error', err);
+      return res.status(500).json({ error: 'Erreur interne' });
     }
-
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-    const pool = req.app.locals.pool;
-
-    let created;
-
-    if (pool) {
-      const userId = req.user?.id || null;
-      console.log('[DEBUG POST] userId extrait:', userId);
-      console.log('[DEBUG POST] username extrait:', req.user?.username);
-      
-      const insertQ = `
-        INSERT INTO annonces (titre, description, image, user_id, created_at)
-        VALUES ($1, $2, $3, $4, NOW() AT TIME ZONE 'Europe/Paris')
-        RETURNING id, titre, description, image, created_at, updated_at
-      `;
-      const values = [titre, description, imagePath, userId];
-      const result = await pool.query(insertQ, values);
-      const row = result.rows[0];
-      
-      created = {
-        id: row.id,
-        titre: row.titre,
-        description: row.description,
-        image: toImageUrl(req, row.image),
-        username: req.user?.username || null,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      };
-      console.log('[DEBUG POST] Annonce créée:', created);
-    } else {
-      const now = new Date().toISOString();
-      created = {
-        id: store.length ? (store[0].id || Date.now()) + 1 : Date.now(),
-        titre,
-        description,
-        image: toImageUrl(req, imagePath),
-        username: req.user?.username || 'inconnu',
-        createdAt: now,
-        updatedAt: now
-      };
-      store.unshift(created);
-    }
-
-    return res.status(201).json({ annonce: created });
-  } catch (err) {
-    console.error('POST /api/annonces error', err);
-    return res.status(500).json({ error: 'Erreur interne' });
   }
-});
+);
+
 
 // ============================================================================
 // PUT /api/annonces/:id -> Modifie une annonce (PROTÉGÉ - besoin du JWT)
