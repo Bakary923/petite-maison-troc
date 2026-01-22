@@ -6,9 +6,9 @@ import { AuthProvider, AuthContext } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Annonces from './pages/Annonces';
-import Login from './login';
-import Signup from './signup';
-import CreateAnnonce from './CreateAnnonce';
+import Login from './pages/login';
+import Signup from './pages/signup';
+import CreateAnnonce from './pages/CreateAnnonce';
 
 // Composant pour protéger les routes (nécessite d'être connecté)
 function ProtectedRoute({ children }) {
