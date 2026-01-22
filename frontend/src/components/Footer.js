@@ -1,147 +1,234 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ContactModal from './ContactModal';
 
 export default function Footer() {
   const navigate = useNavigate();
+  const [showContactModal, setShowContactModal] = useState(false);
 
   return (
-    <footer style={styles.footer}>
-      <div style={styles.container}>
-        {/* TOP SECTION */}
-        <div style={styles.topSection}>
-          <div style={styles.column}>
-            <div style={styles.logoSection}>
-              <div style={styles.logo}>🏠</div>
-              <div>
-                <h3 style={styles.logoText}>Maison du Troc</h3>
-                <p style={styles.tagline}>Plateforme de troc communautaire</p>
+    <>
+      <footer style={styles.footer}>
+        <div style={styles.container}>
+          {/* TOP SECTION */}
+          <div style={styles.topSection}>
+            <div style={styles.column}>
+              <div style={styles.logoSection}>
+                <div style={styles.logo}>🏠</div>
+                <div>
+                  <h3 style={styles.logoText}>Petite Maison Épouvante</h3>
+                  <p style={styles.tagline}>Plateforme de troc communautaire</p>
+                </div>
+              </div>
+              <p style={styles.description}>
+                Échangez, donnez et recevez dans votre communauté. Une plateforme moderne pour partager responsablement.
+              </p>
+            </div>
+
+            {/* LINKS SECTION */}
+            <div style={styles.column}>
+              <h4 style={styles.columnTitle}>Navigation</h4>
+              <ul style={styles.linkList}>
+                <li>
+                  <button
+                    onClick={() => navigate('/')}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Accueil
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => navigate('/annonces')}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Annonces
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => navigate('/login')}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Connexion
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => navigate('/signup')}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    S'inscrire
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* INFO SECTION */}
+            <div style={styles.column}>
+              <h4 style={styles.columnTitle}>Informations</h4>
+              <ul style={styles.linkList}>
+                <li>
+                  <button
+                    onClick={() => {}}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    À propos
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => {}}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Conditions d'utilisation
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => {}}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Politique de confidentialité
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={() => setShowContactModal(true)}
+                    style={styles.link}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#f97316';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#9CA3AF';
+                    }}
+                  >
+                    Nous contacter
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* SOCIALS SECTION */}
+            <div style={styles.column}>
+              <h4 style={styles.columnTitle}>Suivez-nous</h4>
+              <div style={styles.socialLinks}>
+                <a href="#" style={styles.socialButton} title="Facebook">
+                  f
+                </a>
+                <a href="#" style={styles.socialButton} title="Twitter">
+                  𝕏
+                </a>
+                <a href="#" style={styles.socialButton} title="Instagram">
+                  📷
+                </a>
+                <a href="#" style={styles.socialButton} title="Discord">
+                  💬
+                </a>
               </div>
             </div>
-            <p style={styles.description}>
-              Échangez, donnez et recevez dans votre communauté. Une plateforme moderne pour partager responsablement.
+          </div>
+
+          {/* DIVIDER */}
+          <div style={styles.divider} />
+
+          {/* BOTTOM SECTION */}
+          <div style={styles.bottomSection}>
+            <p style={styles.copyright}>
+              © 2026 Petite Maison Épouvante. Tous droits réservés.
             </p>
-          </div>
-
-          {/* LINKS SECTION */}
-          <div style={styles.column}>
-            <h4 style={styles.columnTitle}>Navigation</h4>
-            <ul style={styles.linkList}>
-              <li>
-                <button
-                  onClick={() => navigate('/')}
-                  style={styles.link}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = '#f97316';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = '#9CA3AF';
-                  }}
-                >
-                  Accueil
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => navigate('/annonces')}
-                  style={styles.link}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = '#f97316';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = '#9CA3AF';
-                  }}
-                >
-                  Annonces
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => navigate('/login')}
-                  style={styles.link}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = '#f97316';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = '#9CA3AF';
-                  }}
-                >
-                  Connexion
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => navigate('/signup')}
-                  style={styles.link}
-                  onMouseEnter={(e) => {
-                    e.target.style.color = '#f97316';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.color = '#9CA3AF';
-                  }}
-                >
-                  S'inscrire
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* INFO SECTION */}
-          <div style={styles.column}>
-            <h4 style={styles.columnTitle}>Informations</h4>
-            <ul style={styles.linkList}>
-              <li>
-                <a href="#" style={styles.link}>À propos</a>
-              </li>
-              <li>
-                <a href="#" style={styles.link}>Conditions d'utilisation</a>
-              </li>
-              <li>
-                <a href="#" style={styles.link}>Politique de confidentialité</a>
-              </li>
-              <li>
-                <a href="#" style={styles.link}>Nous contacter</a>
-              </li>
-            </ul>
-          </div>
-
-          {/* SOCIALS SECTION */}
-          <div style={styles.column}>
-            <h4 style={styles.columnTitle}>Suivez-nous</h4>
-            <div style={styles.socialLinks}>
-              <a href="#" style={styles.socialButton} title="Facebook">
-                f
-              </a>
-              <a href="#" style={styles.socialButton} title="Twitter">
-                𝕏
-              </a>
-              <a href="#" style={styles.socialButton} title="Instagram">
-                📷
-              </a>
-              <a href="#" style={styles.socialButton} title="Discord">
-                💬
-              </a>
+            <div style={styles.bottomLinks}>
+              <button
+                onClick={() => {}}
+                style={styles.bottomLink}
+                onMouseEnter={(e) => {
+                  e.target.style.color = '#f97316';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = '#9CA3AF';
+                }}
+              >
+                Conditions
+              </button>
+              <span style={styles.separator}>•</span>
+              <button
+                onClick={() => {}}
+                style={styles.bottomLink}
+                onMouseEnter={(e) => {
+                  e.target.style.color = '#f97316';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = '#9CA3AF';
+                }}
+              >
+                Confidentialité
+              </button>
+              <span style={styles.separator}>•</span>
+              <button
+                onClick={() => {}}
+                style={styles.bottomLink}
+                onMouseEnter={(e) => {
+                  e.target.style.color = '#f97316';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = '#9CA3AF';
+                }}
+              >
+                Cookies
+              </button>
             </div>
           </div>
         </div>
+      </footer>
 
-        {/* DIVIDER */}
-        <div style={styles.divider} />
-
-        {/* BOTTOM SECTION */}
-        <div style={styles.bottomSection}>
-          <p style={styles.copyright}>
-            © 2026 Maison du Troc. Tous droits réservés.
-          </p>
-          <div style={styles.bottomLinks}>
-            <a href="#" style={styles.bottomLink}>Conditions</a>
-            <span style={styles.separator}>•</span>
-            <a href="#" style={styles.bottomLink}>Confidentialité</a>
-            <span style={styles.separator}>•</span>
-            <a href="#" style={styles.bottomLink}>Cookies</a>
-          </div>
-        </div>
-      </div>
-    </footer>
+      {/* Modal de contact */}
+      <ContactModal 
+        isOpen={showContactModal} 
+        onClose={() => setShowContactModal(false)} 
+      />
+    </>
   );
 }
 
@@ -272,6 +359,10 @@ const styles = {
     textDecoration: 'none',
     transition: 'color 0.2s ease',
     cursor: 'pointer',
+    background: 'none',
+    border: 'none',
+    fontFamily: 'inherit',
+    padding: 0,
   },
   separator: {
     color: '#6B7280',
