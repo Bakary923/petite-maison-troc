@@ -6,73 +6,88 @@ export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  // Fonction pour cliquer sur "Annonces"
-  const handleAnnoncesClick = () => {
-    navigate('/annonces'); // Accédez à la page des annonces
-  };
-
-  // Fonction pour cliquer sur "Connexion"
-  const handleLoginClick = () => {
-    navigate('/login');
-  };
-
-  // Fonction pour cliquer sur "Inscription"
-  const handleSignupClick = () => {
-    navigate('/signup');
-  };
-
-  // Fonction pour se déconnecter
+  const handleAnnoncesClick = () => navigate('/annonces');
+  const handleLoginClick = () => navigate('/login');
+  const handleSignupClick = () => navigate('/signup');
   const handleLogout = () => {
     logout();
-    navigate('/'); // Retour à l'accueil
+    navigate('/');
   };
 
   return (
     <nav style={styles.navbar}>
       <div style={styles.container}>
-        {/* Logo/Titre */}
-        <h1 
-          onClick={() => navigate('/')} 
-          style={styles.logo}
+        <div
+          onClick={() => navigate('/')}
+          style={styles.logoContainer}
         >
-          🏠 Petite Maison du Troc
-        </h1>
+          <div style={styles.logoMark} />
+          <span style={styles.logoText}>Maison du Troc</span>
+        </div>
 
-        {/* Menu */}
         <div style={styles.menu}>
-          {/* Bouton Annonces (accessible à tous) */}
-          <button 
+          <button
             onClick={handleAnnoncesClick}
-            style={styles.navButton}
+            style={styles.navLink}
+            onMouseEnter={(e) => {
+              e.target.style.color = '#f97316';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.color = '#E5E7EB';
+            }}
           >
-            📋 Annonces
+            Annonces
           </button>
 
-          {/* Si user est connecté */}
           {user ? (
             <div style={styles.userSection}>
-              <span style={styles.username}>Bonjour, {user.username}</span>
-              <button 
+              <span style={styles.username}>Bonsoir, {user.username}</span>
+              <button
                 onClick={handleLogout}
-                style={{...styles.navButton, backgroundColor: '#ff4444'}}
+                style={styles.logoutButton}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'rgba(239, 68, 68, 0.2)';
+                  e.target.style.borderColor = '#ef4444';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = 'rgba(127, 29, 29, 0.8)';
+                  e.target.style.borderColor = 'rgba(248, 113, 113, 0.4)';
+                }}
               >
                 Se déconnecter
               </button>
             </div>
           ) : (
-            // Si user N'est PAS connecté
             <div style={styles.authButtons}>
-              <button 
+              <button
                 onClick={handleLoginClick}
-                style={styles.navButton}
+                style={styles.secondaryButton}
+                onMouseEnter={(e) => {
+                  e.target.style.borderColor = '#f97316';
+                  e.target.style.color = '#f97316';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.borderColor = 'rgba(148, 163, 184, 0.5)';
+                  e.target.style.color = '#E5E7EB';
+                }}
               >
-                🔓 Connexion
+                Connexion
               </button>
-              <button 
+              <button
                 onClick={handleSignupClick}
-                style={{...styles.navButton, backgroundColor: '#4CAF50'}}
+                style={styles.primaryButton}
+                onMouseEnter={(e) => {
+                  e.target.style.background =
+                    'radial-gradient(circle at 0 0, rgba(249,115,22,0.5), rgba(249,115,22,1))';
+                  e.target.style.boxShadow = '0 0 32px rgba(249,115,22,0.8)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background =
+                    'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))';
+                  e.target.style.boxShadow = '0 0 22px rgba(249,115,22,0.6)';
+                }}
               >
-                📝 Inscription
+                Créer un compte
               </button>
             </div>
           )}
@@ -82,59 +97,120 @@ export default function Navbar() {
   );
 }
 
-// Styles
 const styles = {
   navbar: {
-    backgroundColor: '#2c3e50',
-    padding: '15px 0',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
     position: 'sticky',
     top: 0,
-    zIndex: 100
+    zIndex: 100,
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    background: 'rgba(2, 6, 23, 0.92)',
+    borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
+    boxShadow: '0 2px 20px rgba(0, 0, 0, 0.3)',
   },
   container: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    maxWidth: '1200px',
+    maxWidth: '1180px',
     margin: '0 auto',
-    padding: '0 20px'
+    padding: '16px 24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  logo: {
-    color: 'white',
-    margin: 0,
-    fontSize: '24px',
+  logoContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
     cursor: 'pointer',
-    fontWeight: 'bold'
+    padding: '8px 0',
+    transition: 'opacity 0.2s ease',
+  },
+  logoMark: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+    boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
+    position: 'relative',
+  },
+  logoText: {
+    fontSize: 18,
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    color: '#F9FAFB',
+    lineHeight: 1,
   },
   menu: {
     display: 'flex',
-    gap: '15px',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: 24,
   },
-  navButton: {
-    padding: '8px 16px',
-    backgroundColor: '#0066cc',
-    color: 'white',
+  navLink: {
+    background: 'transparent',
     border: 'none',
-    borderRadius: '5px',
+    color: '#E5E7EB',
+    fontSize: 14,
+    fontWeight: 500,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    transition: 'background-color 0.3s'
+    padding: '10px 0',
+    transition: 'color 0.2s ease',
+  },
+  primaryButton: {
+    padding: '10px 24px',
+    borderRadius: 999,
+    border: '1px solid rgba(249, 115, 22, 0.4)',
+    background:
+      'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))',
+    color: '#020617',
+    fontSize: 13,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.14em',
+    cursor: 'pointer',
+    boxShadow: '0 0 22px rgba(249,115,22,0.6)',
+    transition: 'all 0.2s ease',
+  },
+  secondaryButton: {
+    padding: '10px 24px',
+    borderRadius: 999,
+    border: '1px solid rgba(148, 163, 184, 0.5)',
+    background: 'transparent',
+    color: '#E5E7EB',
+    fontSize: 13,
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   userSection: {
     display: 'flex',
-    gap: '15px',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: 14,
+  },
+  username: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    fontWeight: 500,
+  },
+  logoutButton: {
+    padding: '8px 16px',
+    borderRadius: 999,
+    border: '1px solid rgba(248, 113, 113, 0.4)',
+    background: 'rgba(127, 29, 29, 0.8)',
+    color: '#FEE2E2',
+    fontSize: 12,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   authButtons: {
     display: 'flex',
-    gap: '10px'
+    alignItems: 'center',
+    gap: 10,
   },
-  username: {
-    color: 'white',
-    fontSize: '14px',
-    fontWeight: 'bold'
-  }
 };
