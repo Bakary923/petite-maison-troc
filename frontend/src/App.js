@@ -4,6 +4,7 @@ import { AuthProvider, AuthContext } from './contexts/AuthContext';
 
 // Import des pages et composants
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import Home from './pages/Home';
 import Annonces from './pages/Annonces';
 import Login from './pages/login';
@@ -20,35 +21,43 @@ function ProtectedRoute({ children }) {
 function AppInner() {
   return (
     <Router>
-      {/* Navbar visible sur toutes les pages */}
-      <Navbar />
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        {/* Navbar visible sur toutes les pages */}
+        <Navbar />
 
-      <Routes>
-        {/* Page d'accueil publique (accessible à tous) */}
-        <Route path="/" element={<Home />} />
+        {/* Main content */}
+        <main style={{ flex: 1 }}>
+          <Routes>
+            {/* Page d'accueil publique (accessible à tous) */}
+            <Route path="/" element={<Home />} />
 
-        {/* Page des annonces publique (accessible à tous, mais faut être connecté pour modifier) */}
-        <Route path="/annonces" element={<Annonces />} />
+            {/* Page des annonces publique (accessible à tous, mais faut être connecté pour modifier) */}
+            <Route path="/annonces" element={<Annonces />} />
 
-        {/* Login (accessible à tous) */}
-        <Route path="/login" element={<Login />} />
+            {/* Login (accessible à tous) */}
+            <Route path="/login" element={<Login />} />
 
-        {/* Signup (accessible à tous) */}
-        <Route path="/signup" element={<Signup />} />
+            {/* Signup (accessible à tous) */}
+            <Route path="/signup" element={<Signup />} />
 
-        {/* Créer annonce (protégée = faut être connecté) */}
-        <Route 
-          path="/create-annonce" 
-          element={
-            <ProtectedRoute>
-              <CreateAnnonce />
-            </ProtectedRoute>
-          } 
-        />
+            {/* Créer annonce (protégée = faut être connecté) */}
+            <Route 
+              path="/create-annonce" 
+              element={
+                <ProtectedRoute>
+                  <CreateAnnonce />
+                </ProtectedRoute>
+              } 
+            />
 
-        {/* Route par défaut : redirige vers l'accueil */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+            {/* Route par défaut : redirige vers l'accueil */}
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+
+        {/* Footer visible sur toutes les pages */}
+        <Footer />
+      </div>
     </Router>
   );
 }
