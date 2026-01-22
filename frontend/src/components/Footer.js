@@ -14,9 +14,11 @@ export default function Footer() {
           <div style={styles.topSection}>
             <div style={styles.column}>
               <div style={styles.logoSection}>
-                <div style={styles.logo}>🏠</div>
+                <div style={styles.logo}>
+                  <div style={styles.logoSquare} />
+                </div>
                 <div>
-                  <h3 style={styles.logoText}>Petite Maison Épouvante</h3>
+                  <h3 style={styles.logoText}>Maison du Troc</h3>
                   <p style={styles.tagline}>Plateforme de troc communautaire</p>
                 </div>
               </div>
@@ -177,7 +179,7 @@ export default function Footer() {
           {/* BOTTOM SECTION */}
           <div style={styles.bottomSection}>
             <p style={styles.copyright}>
-              © 2026 Petite Maison Épouvante. Tous droits réservés.
+              © 2026 Maison du Troc. Tous droits réservés.
             </p>
             <div style={styles.bottomLinks}>
               <button
@@ -262,8 +264,17 @@ const styles = {
     alignItems: 'flex-start',
   },
   logo: {
-    fontSize: 32,
     lineHeight: '1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoSquare: {
+    width: 32,
+    height: 32,
+    background: 'radial-gradient(circle at 0 0, rgba(249,115,22,0.5), rgba(249,115,22,1))',
+    borderRadius: 8,
+    boxShadow: '0 0 20px rgba(249,115,22,0.6)',
   },
   logoText: {
     fontSize: 18,
