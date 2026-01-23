@@ -2,17 +2,21 @@ import React, { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
+
   const handleAnnoncesClick = () => navigate('/annonces');
   const handleLoginClick = () => navigate('/login');
   const handleSignupClick = () => navigate('/signup');
+  const handleAdminClick = () => navigate('/admin');  // ← AJOUTE
   const handleLogout = () => {
     logout();
     navigate('/');
   };
+
 
   return (
     <nav style={styles.navbar}>
@@ -24,6 +28,7 @@ export default function Navbar() {
           <div style={styles.logoMark} />
           <span style={styles.logoText}>Petite Maison Épouvante</span>
         </div>
+
 
         <div style={styles.menu}>
           <button
@@ -39,9 +44,29 @@ export default function Navbar() {
             Annonces
           </button>
 
+
           {user ? (
             <div style={styles.userSection}>
               <span style={styles.username}>Bonsoir, {user.username}</span>
+              
+              {/* ← AJOUTE : Lien Admin si l'utilisateur est admin */}
+              {user.role === 'admin' && (
+                <button
+                  onClick={handleAdminClick}
+                  style={styles.adminButton}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = '#8b5cf6';
+                    e.target.style.color = '#c4b5fd';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                    e.target.style.color = '#e9d5ff';
+                  }}
+                >
+                  🔐 Admin
+                </button>
+              )}
+
               <button
                 onClick={handleLogout}
                 style={styles.logoutButton}
@@ -96,6 +121,7 @@ export default function Navbar() {
     </nav>
   );
 }
+
 
 const styles = {
   navbar: {
@@ -194,6 +220,19 @@ const styles = {
     fontSize: 13,
     color: '#9CA3AF',
     fontWeight: 500,
+  },
+  adminButton: {  // ← AJOUTE
+    padding: '8px 16px',
+    borderRadius: 999,
+    border: '1px solid rgba(139, 92, 246, 0.4)',
+    background: 'rgba(59, 13, 152, 0.3)',
+    color: '#e9d5ff',
+    fontSize: 12,
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.12em',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
   },
   logoutButton: {
     padding: '8px 16px',
