@@ -2,17 +2,21 @@ import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+
 export default function Annonces() {
   const { user, authFetch } = useContext(AuthContext);
   const navigate = useNavigate();
   const [annonces, setAnnonces] = useState([]);
+  const [myAnnonces, setMyAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ titre: '', description: '' });
+  const [activeTab, setActiveTab] = useState('public'); // 'public' ou 'myannonces'
 
-  const fetchAnnonces = useCallback(async () => {
-    setLoading(true);
+
+  // Récupérer les annonces VALIDÉES (publiques)
+  const fetchPublicAnnonces = useCallback(async () => {
     try {
       const res = await fetch('http://localhost:3000/api/annonces');
       if (!res.ok) throw new Error('Erreur lors du chargement');
@@ -20,14 +24,35 @@ export default function Annonces() {
       setAnnonces(data.annonces || []);
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+
+  // Récupérer MES annonces (pending + validated + rejected)
+  const fetchMyAnnonces = useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3000/api/annonces/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Erreur lors du chargement');
+      const data = await res.json();
+      setMyAnnonces(data.annonces || []);
+    } catch (err) {
+      console.error('Erreur fetch mes annonces:', err);
+    }
+  }, [user]);
+
+
   useEffect(() => {
-    fetchAnnonces();
-  }, [fetchAnnonces]);
+    setLoading(true);
+    Promise.all([
+      fetchPublicAnnonces(),
+      user ? fetchMyAnnonces() : Promise.resolve()
+    ]).finally(() => setLoading(false));
+  }, [fetchPublicAnnonces, fetchMyAnnonces, user]);
+
 
   const handleDelete = async (annonceId) => {
     if (!user) {
@@ -42,11 +67,13 @@ export default function Annonces() {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Erreur suppression');
+      setMyAnnonces(prev => prev.filter(a => a.id !== annonceId));
       setAnnonces(prev => prev.filter(a => a.id !== annonceId));
     } catch (err) {
       alert(`Erreur : ${err.message}`);
     }
   };
+
 
   const handleEditStart = (annonce) => {
     if (!user) {
@@ -57,10 +84,12 @@ export default function Annonces() {
     setEditForm({ titre: annonce.titre, description: annonce.description });
   };
 
+
   const handleEditCancel = () => {
     setEditingId(null);
     setEditForm({ titre: '', description: '' });
   };
+
 
   const handleEditSave = async (annonceId) => {
     try {
@@ -84,6 +113,7 @@ export default function Annonces() {
       }
 
       const data = await res.json();
+      setMyAnnonces(prev => prev.map(a => a.id === annonceId ? data.annonce : a));
       setAnnonces(prev => prev.map(a => a.id === annonceId ? data.annonce : a));
       setEditingId(null);
       setEditForm({ titre: '', description: '' });
@@ -93,6 +123,7 @@ export default function Annonces() {
     }
   };
 
+
   if (loading) return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -100,6 +131,7 @@ export default function Annonces() {
       </div>
     </div>
   );
+
 
   if (error) return (
     <div style={styles.page}>
@@ -109,14 +141,26 @@ export default function Annonces() {
     </div>
   );
 
+
+  // Afficher les annonces publiques OU mes annonces selon l'onglet
+  const displayedAnnonces = activeTab === 'public' ? annonces : myAnnonces;
+  const isPublicTab = activeTab === 'public';
+
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         {/* HEADER */}
         <div style={styles.header}>
           <div style={styles.headerContent}>
-            <h1 style={styles.title}>Annonces disponibles</h1>
-            <p style={styles.subtitle}>Explorez les objets à échanger ou donner</p>
+            <h1 style={styles.title}>
+              {isPublicTab ? 'Annonces disponibles' : 'Mes Annonces'}
+            </h1>
+            <p style={styles.subtitle}>
+              {isPublicTab 
+                ? 'Explorez les objets à échanger ou donner' 
+                : 'Gérez vos annonces et suivez leur statut'}
+            </p>
           </div>
 
           {user ? (
@@ -138,21 +182,53 @@ export default function Annonces() {
             </button>
           ) : (
             <p style={styles.loginPrompt}>
-              <a onClick={() => navigate('/login')} style={styles.link}>Connecte-toi</a> ou{' '}
-              <a onClick={() => navigate('/signup')} style={styles.link}>inscris-toi</a> pour créer
+              <a onClick={() => navigate('/connexion')} style={styles.link}>Connecte-toi</a> ou{' '}
+              <a onClick={() => navigate('/inscription')} style={styles.link}>inscris-toi</a> pour créer
             </p>
           )}
         </div>
 
+        {/* TABS (seulement si connecté) */}
+        {user && (
+          <div style={styles.tabs}>
+            <button
+              style={{
+                ...styles.tabButton,
+                ...(activeTab === 'public' ? styles.tabButtonActive : {})
+              }}
+              onClick={() => setActiveTab('public')}
+            >
+              🌍 Annonces publiques ({annonces.length})
+            </button>
+            <button
+              style={{
+                ...styles.tabButton,
+                ...(activeTab === 'myannonces' ? styles.tabButtonActive : {})
+              }}
+              onClick={() => setActiveTab('myannonces')}
+            >
+              📋 Mes annonces ({myAnnonces.length})
+            </button>
+          </div>
+        )}
+
         {/* GRID D'ANNONCES */}
-        {annonces.length === 0 ? (
+        {displayedAnnonces.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={styles.emptyText}>✨ Aucune annonce pour le moment</p>
-            <p style={styles.emptySubtext}>Soyez le premier à proposer quelque chose !</p>
+            <p style={styles.emptyText}>
+              {isPublicTab 
+                ? '✨ Aucune annonce pour le moment' 
+                : '📭 Tu n\'as pas encore créé d\'annonce'}
+            </p>
+            <p style={styles.emptySubtext}>
+              {isPublicTab 
+                ? 'Soyez le premier à proposer quelque chose !' 
+                : 'Crée ta première annonce en cliquant sur le bouton ci-dessus'}
+            </p>
           </div>
         ) : (
           <div style={styles.grid}>
-            {annonces.map(a => (
+            {displayedAnnonces.map(a => (
               <div key={a.id} style={styles.card}>
                 {editingId === a.id ? (
                   // MODE ÉDITION
@@ -226,32 +302,58 @@ export default function Annonces() {
                         )}
                       </div>
 
-                      {user && a.username === user.username && (
+                      {/* STATUS BADGE (pour les onglets "Mes annonces") */}
+                      {!isPublicTab && a.status && (
+                        <div style={{
+                          ...styles.statusBadge,
+                          ...(a.status === 'pending' ? styles.statusPending : {}),
+                          ...(a.status === 'validated' ? styles.statusValidated : {}),
+                          ...(a.status === 'rejected' ? styles.statusRejected : {})
+                        }}>
+                          {a.status === 'pending' && '⏳ En attente de validation'}
+                          {a.status === 'validated' && '✅ Validée'}
+                          {a.status === 'rejected' && '❌ Rejetée'}
+                        </div>
+                      )}
+
+                      {/* REJECTION REASON */}
+                      {!isPublicTab && a.status === 'rejected' && a.rejectionReason && (
+                        <div style={styles.rejectionReason}>
+                          <strong>Raison :</strong> {a.rejectionReason}
+                        </div>
+                      )}
+
+                      {/* ACTIONS */}
+                      {!isPublicTab && user && (
                         <div style={styles.actions}>
-                          <button
-                            onClick={() => handleEditStart(a)}
-                            style={styles.editBtn}
-                            onMouseEnter={(e) => {
-                              e.target.style.background = 'rgba(59,130,246,0.5)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = 'rgba(59,130,246,0.3)';
-                            }}
-                          >
-                            ✏️ Modifier
-                          </button>
-                          <button
-                            onClick={() => handleDelete(a.id)}
-                            style={styles.deleteBtn}
-                            onMouseEnter={(e) => {
-                              e.target.style.background = 'rgba(239,68,68,0.5)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = 'rgba(239,68,68,0.3)';
-                            }}
-                          >
-                            🗑️ Supprimer
-                          </button>
+                          {a.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleEditStart(a)}
+                                style={styles.editBtn}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = 'rgba(59,130,246,0.5)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = 'rgba(59,130,246,0.3)';
+                                }}
+                              >
+                                ✏️ Modifier
+                              </button>
+                              <button
+                                onClick={() => handleDelete(a.id)}
+                                style={styles.deleteBtn}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = 'rgba(239,68,68,0.5)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = 'rgba(239,68,68,0.3)';
+                                }}
+                              >
+                                🗑️ Supprimer
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -265,6 +367,7 @@ export default function Annonces() {
     </div>
   );
 }
+
 
 const styles = {
   page: {
@@ -283,7 +386,7 @@ const styles = {
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 40,
-    marginBottom: 60,
+    marginBottom: 40,
     flexWrap: 'wrap',
   },
   headerContent: {
@@ -325,6 +428,28 @@ const styles = {
     cursor: 'pointer',
     textDecoration: 'underline',
     fontWeight: 600,
+  },
+  // ✨ TABS
+  tabs: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '40px',
+    borderBottom: '1px solid rgba(249, 115, 22, 0.2)',
+  },
+  tabButton: {
+    padding: '12px 20px',
+    border: 'none',
+    background: 'transparent',
+    color: '#9CA3AF',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    borderBottom: '2px solid transparent',
+    transition: 'all 0.3s',
+  },
+  tabButtonActive: {
+    color: '#f97316',
+    borderBottomColor: '#f97316',
   },
   emptyState: {
     textAlign: 'center',
@@ -415,6 +540,39 @@ const styles = {
     color: '#f97316',
     fontStyle: 'italic',
     marginLeft: 8,
+  },
+  // ✨ STATUS
+  statusBadge: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    fontSize: '0.9em',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: '8px',
+  },
+  statusPending: {
+    backgroundColor: 'rgba(249, 115, 22, 0.2)',
+    color: '#fbbf24',
+    border: '1px solid rgba(249, 115, 22, 0.4)',
+  },
+  statusValidated: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    color: '#86efac',
+    border: '1px solid rgba(34, 197, 94, 0.4)',
+  },
+  statusRejected: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    color: '#fca5a5',
+    border: '1px solid rgba(239, 68, 68, 0.4)',
+  },
+  rejectionReason: {
+    padding: '12px',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    border: '1px solid rgba(239, 68, 68, 0.3)',
+    borderRadius: '6px',
+    color: '#fca5a5',
+    fontSize: '0.9em',
+    marginBottom: '15px',
   },
   actions: {
     display: 'flex',

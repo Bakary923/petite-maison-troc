@@ -55,10 +55,10 @@ function toImageUrl(req, imagePath) {
 }
 
 // ============================================================================
-// GET /api/annonces -> Récupère la liste de toutes les annonces (PUBLIC)
+// GET /api/annonces -> Récupère la liste des annonces VALIDÉES (PUBLIC)
 // ============================================================================
 router.get('/', async (req, res) => {
-  console.log('[DEBUG GET] Récupération des annonces (publique)');
+  console.log('[DEBUG GET] Récupération des annonces publiques validées');
   try {
     const pool = req.app.locals.pool;
     if (pool) {
@@ -66,6 +66,7 @@ router.get('/', async (req, res) => {
         SELECT a.id, a.titre, a.description, a.image, a.status, a.created_at, a.updated_at, u.username
         FROM annonces a
         LEFT JOIN users u ON a.user_id = u.id
+        WHERE a.status = 'validated'
         ORDER BY a.created_at DESC
       `;
       const result = await pool.query(q);
@@ -89,6 +90,46 @@ router.get('/', async (req, res) => {
 });
 
 // ============================================================================
+// GET /api/annonces/me -> Récupère MES annonces (PROTÉGÉ)
+// ============================================================================
+router.get('/me', authMiddleware, async (req, res) => {
+  console.log('[DEBUG GET /me] Récupération de mes annonces');
+  try {
+    const pool = req.app.locals.pool;
+    const userId = req.user?.id;
+
+    if (!pool || !userId) {
+      return res.status(400).json({ error: 'Utilisateur non authentifié' });
+    }
+
+    const q = `
+      SELECT a.id, a.titre, a.description, a.image, a.status, a.rejection_reason, a.created_at, a.updated_at
+      FROM annonces a
+      WHERE a.user_id = $1
+      ORDER BY a.created_at DESC
+    `;
+    
+    const result = await pool.query(q, [userId]);
+    const annonces = result.rows.map(r => ({
+      id: r.id,
+      titre: r.titre,
+      description: r.description,
+      image: toImageUrl(req, r.image),
+      status: r.status,
+      rejectionReason: r.rejection_reason,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
+
+    console.log(`[DEBUG GET /me] ${annonces.length} annonces trouvées pour user ${userId}`);
+    return res.json({ annonces });
+  } catch (err) {
+    console.error('GET /api/annonces/me error', err);
+    return res.status(500).json({ error: 'Erreur interne' });
+  }
+});
+
+// ============================================================================
 // POST /api/annonces -> Crée une annonce (PROTÉGÉ - besoin du JWT)
 // ============================================================================
 router.post(
@@ -99,7 +140,7 @@ router.post(
   async (req, res) => {           // 4) Logique métier si tout est OK
     console.log('[DEBUG POST] === CRÉATION ANNONCE ===');
     console.log('[DEBUG POST] req.user:', req.user);
-    console.log('[DEBUG POST] req.file:', req.file);  // ← AFFICHE LE FICHIER UPLOADÉ
+    console.log('[DEBUG POST] req.file:', req.file);
     console.log('[DEBUG POST] req.body:', req.body);
     
     try {
@@ -108,7 +149,7 @@ router.post(
       const description = (body.description || '').trim();
 
       const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-      console.log('[DEBUG POST] imagePath:', imagePath);  // ← AFFICHE LE CHEMIN FINAL
+      console.log('[DEBUG POST] imagePath:', imagePath);
       
       const pool = req.app.locals.pool;
 
