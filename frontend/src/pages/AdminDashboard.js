@@ -1,18 +1,17 @@
 import React, { useState, useEffect, useContext } from 'react';
-import axios from 'axios';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminCard from '../components/AdminCard';
 import '../styles/AdminDashboard.css';
 
 function AdminDashboard() {
-  const { user } = useContext(AuthContext);
+  // ✅ On utilise authFetch pour bénéficier de l'auto-refresh token du contexte
+  const { user, authFetch } = useContext(AuthContext);
   const [annonces, setAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('pending');
 
-  const token = localStorage.getItem('token');
-
+  // Effet pour vérifier les droits d'accès
   useEffect(() => {
     if (user && user.role !== 'admin') {
       setError('Vous n\'êtes pas autorisé à accéder à cette page');
@@ -20,8 +19,10 @@ function AdminDashboard() {
     }
   }, [user]);
 
+  // Effet pour charger les annonces
   useEffect(() => {
-    if (!token || !user || user.role !== 'admin') {
+    // Si l'utilisateur n'est pas admin, on ne tente même pas l'appel
+    if (!user || user.role !== 'admin') {
       return;
     }
 
@@ -34,13 +35,16 @@ function AdminDashboard() {
           url = `http://localhost:3000/api/admin/annonces/${filter}`;
         }
 
-        const response = await axios.get(url, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
+        // ✅ Utilisation de authFetch (plus besoin de headers manuels ni d'axios)
+        const response = await authFetch(url);
+        
+        if (!response.ok) {
+          throw new Error('Erreur lors de la récupération des données');
+        }
 
-        setAnnonces(response.data.annonces || response.data);
+        const data = await response.json();
+        // Ton backend renvoie directement le tableau ou un objet avec une clé annonces
+        setAnnonces(Array.isArray(data) ? data : (data.annonces || []));
         setError(null);
       } catch (err) {
         console.error('Erreur:', err);
@@ -51,19 +55,16 @@ function AdminDashboard() {
     };
 
     fetchAnnonces();
-  }, [filter, token, user]);
+  }, [filter, user, authFetch]);
 
   const handleValidate = async (id) => {
     try {
-      await axios.put(
-        `http://localhost:3000/api/admin/annonces/${id}/validate`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}/validate`, {
+        method: 'PUT'
+      });
+
+      if (!response.ok) throw new Error();
+
       setAnnonces(annonces.filter(a => a.id !== id));
       alert('Annonce validée ✅');
     } catch (err) {
@@ -74,15 +75,13 @@ function AdminDashboard() {
 
   const handleReject = async (id, reason) => {
     try {
-      await axios.put(
-        `http://localhost:3000/api/admin/annonces/${id}/reject`,
-        { reason },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
+      const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}/reject`, {
+        method: 'PUT',
+        body: JSON.stringify({ reason })
+      });
+
+      if (!response.ok) throw new Error();
+
       setAnnonces(annonces.filter(a => a.id !== id));
       alert('Annonce rejetée ❌');
     } catch (err) {
@@ -94,14 +93,12 @@ function AdminDashboard() {
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette annonce ?')) {
       try {
-        await axios.delete(
-          `http://localhost:3000/api/admin/annonces/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
+        const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error();
+
         setAnnonces(annonces.filter(a => a.id !== id));
         alert('Annonce supprimée 🗑️');
       } catch (err) {
@@ -111,6 +108,7 @@ function AdminDashboard() {
     }
   };
 
+  // Affichage si non autorisé
   if (!user || user.role !== 'admin') {
     return (
       <div style={styles.errorContainer}>
@@ -121,7 +119,7 @@ function AdminDashboard() {
   }
 
   if (loading) {
-    return <div style={styles.loadingContainer}>⏳ Chargement...</div>;
+    return <div style={styles.loadingContainer}>⏳ Chargement des données sécurisées...</div>;
   }
 
   return (
@@ -130,58 +128,37 @@ function AdminDashboard() {
       <div style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.title}>🔐 Tableau de Bord Admin</h1>
-          <p style={styles.subtitle}>Bienvenue {user.username} !</p>
+          <p style={styles.subtitle}>Gestion de la modération - {user.username}</p>
         </div>
       </div>
 
-      {/* Filters */}
       <div style={styles.container}>
+        {/* Filtres */}
         <div style={styles.filterContainer}>
-          <button
-            style={{
-              ...styles.filterButton,
-              ...(filter === 'pending' ? styles.filterButtonActive : {})
-            }}
-            onClick={() => setFilter('pending')}
-          >
-            ⏳ En attente
-          </button>
-          <button
-            style={{
-              ...styles.filterButton,
-              ...(filter === 'validated' ? styles.filterButtonActive : {})
-            }}
-            onClick={() => setFilter('validated')}
-          >
-            ✅ Validées
-          </button>
-          <button
-            style={{
-              ...styles.filterButton,
-              ...(filter === 'rejected' ? styles.filterButtonActive : {})
-            }}
-            onClick={() => setFilter('rejected')}
-          >
-            ❌ Rejetées
-          </button>
-          <button
-            style={{
-              ...styles.filterButton,
-              ...(filter === 'all' ? styles.filterButtonActive : {})
-            }}
-            onClick={() => setFilter('all')}
-          >
-            📋 Toutes
-          </button>
+          {['pending', 'validated', 'rejected', 'all'].map((f) => (
+            <button
+              key={f}
+              style={{
+                ...styles.filterButton,
+                ...(filter === f ? styles.filterButtonActive : {})
+              }}
+              onClick={() => setFilter(f)}
+            >
+              {f === 'pending' && '⏳ En attente'}
+              {f === 'validated' && '✅ Validées'}
+              {f === 'rejected' && '❌ Rejetées'}
+              {f === 'all' && '📋 Toutes'}
+            </button>
+          ))}
         </div>
 
-        {/* Error message */}
+        {/* Message d'erreur local */}
         {error && <div style={styles.errorMessage}>{error}</div>}
 
-        {/* Annonces list */}
+        {/* Liste des annonces */}
         {annonces.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={styles.emptyText}>Aucune annonce à afficher</p>
+            <p style={styles.emptyText}>Aucune annonce trouvée pour ce filtre.</p>
           </div>
         ) : (
           <div style={styles.annoncesGrid}>
@@ -201,6 +178,7 @@ function AdminDashboard() {
   );
 }
 
+// Styles identiques à ta version précédente pour garder l'esthétique
 const styles = {
   adminDashboard: {
     minHeight: '100vh',
