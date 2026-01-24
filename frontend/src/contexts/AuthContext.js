@@ -1,27 +1,89 @@
 import React, { createContext, useState, useCallback } from 'react';
 
-// Contexte global d'authentification (user + token + fonctions)
+// Contexte global d'authentification
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // user connecté (chargé depuis localStorage au démarrage)
+  // ✅ CHANGEMENT 1 : Deux tokens au lieu d'un
+  const [accessToken, setAccessToken] = useState(() => 
+    localStorage.getItem('accessToken') || null
+  );
+  
+  const [refreshToken, setRefreshToken] = useState(() => 
+    localStorage.getItem('refreshToken') || null
+  );
+
+  // user connecté
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem('user');
     return raw ? JSON.parse(raw) : null;
   });
 
-  // token JWT (chargé depuis localStorage au démarrage)
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+  // ============================================
+  // ✅ CHANGEMENT 2 : Fonction pour renouveler le token
+  // ============================================
+  const refreshAccessToken = useCallback(async () => {
+    if (!refreshToken) {
+      console.log('[REFRESH] Pas de refreshToken');
+      return null;
+    }
 
-  // Déconnexion : on vide le localStorage et le state React
-  const logout = useCallback(() => {
-    localStorage.removeItem('token');
+    try {
+      const res = await fetch('http://localhost:3000/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!res.ok) {
+        console.log('[REFRESH] Refresh échoué (401)');
+        logout();
+        return null;
+      }
+
+      const data = await res.json();
+
+      // ✅ Sauvegarde les nouveaux tokens
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      setAccessToken(data.accessToken);
+      setRefreshToken(data.refreshToken);
+
+      console.log('[REFRESH] ✅ Nouveau accessToken généré');
+      return data.accessToken;
+    } catch (err) {
+      console.error('[REFRESH ERROR]', err);
+      logout();
+      return null;
+    }
+  }, [refreshToken]);
+
+  // Déconnexion : vide le localStorage et le state
+  const logout = useCallback(async () => {
+    // ✅ OPTIONNEL : Appeler /logout pour supprimer le refreshToken en base
+    if (refreshToken) {
+      try {
+        await fetch('http://localhost:3000/api/auth/logout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+      } catch (err) {
+        console.error('[LOGOUT ERROR]', err);
+      }
+    }
+
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    setToken(null);
+    setAccessToken(null);
+    setRefreshToken(null);
     setUser(null);
-  }, []);
+  }, [refreshToken]);
 
-  // Fonction login : envoie email + password au backend, enregistre token + user
+  // ============================================
+  // LOGIN - Stocke les 2 tokens
+  // ============================================
   const login = useCallback(async ({ email, password }) => {
     const res = await fetch('http://localhost:3000/api/auth/login', {
       method: 'POST',
@@ -29,33 +91,29 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ email, password }),
     });
 
-    // Gestion des erreurs de connexion (validation + mauvais identifiants)
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-
-      // Message générique pour l'utilisateur
-      let msg = 'Email ou mot de passe incorrect';
-
-      // Si une seule erreur de validation (ex: email vide), on peut utiliser son message
+      let msg = "Email ou mot de passe incorrect";
       if (Array.isArray(err.errors) && err.errors.length === 1) {
         msg = err.errors[0].msg;
       } else if (err.error || err.message || err.detail) {
         msg = err.error || err.message || err.detail;
       }
-
       throw new Error(msg);
     }
 
-    // Si tout va bien, on récupère les données
     const data = await res.json();
 
-    // On stocke le token JWT
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
+    // ✅ CHANGEMENT 3 : Stocker les 2 tokens
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+      setAccessToken(data.accessToken);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+      setRefreshToken(data.refreshToken);
     }
 
-    // On stocke l'utilisateur connecté
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
@@ -64,7 +122,9 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
-  // Fonction register : inscription + éventuellement login automatique
+  // ============================================
+  // REGISTER - Stocke les 2 tokens
+  // ============================================
   const register = useCallback(async ({ username, email, password }) => {
     const res = await fetch('http://localhost:3000/api/auth/register', {
       method: 'POST',
@@ -72,98 +132,116 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ username, email, password }),
     });
 
-    // Gestion des erreurs d'inscription (dont notre validation express-validator)
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-
-      // Message générique pour l'utilisateur
-      let msg = 'Informations d’inscription invalides';
-
-      // Si une seule erreur de validation, on peut afficher le détail (optionnel)
+      let msg = "Informations d\'inscription invalides";
       if (Array.isArray(errBody.errors) && errBody.errors.length === 1) {
         msg = errBody.errors[0].msg;
       } else if (errBody.error || errBody.message || errBody.detail) {
         msg = errBody.error || errBody.message || errBody.detail;
       }
-
-      // On remonte un Error vers le composant React (Signup) qui affichera msg
       throw new Error(msg);
     }
 
-    // Si l'inscription a réussi, on lit la réponse
     const data = await res.json();
 
-    // On stocke immédiatement token + user si le backend les renvoie
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
+    // ✅ CHANGEMENT 4 : Stocker les 2 tokens
+    if (data.accessToken) {
+      localStorage.setItem('accessToken', data.accessToken);
+      setAccessToken(data.accessToken);
+    }
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+      setRefreshToken(data.refreshToken);
     }
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
-      return data.user; // On renvoie l'utilisateur au composant appelant
+      return data.user;
     }
 
-    // Si le backend ne renvoie pas user/token après register, on tente un login automatique
-    try {
-      const ldRes = await fetch('http://localhost:3000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (ldRes.ok) {
-        const ld = await ldRes.json();
-
-        if (ld.token) {
-          localStorage.setItem('token', ld.token);
-          setToken(ld.token);
-        }
-        if (ld.user) {
-          localStorage.setItem('user', JSON.stringify(ld.user));
-          setUser(ld.user);
-          return ld.user;
-        }
-      }
-    } catch (e) {
-      // Si le login automatique échoue, on ignore simplement
-    }
-
-    // Si on arrive ici, on n'a pas d'utilisateur connecté
     return null;
   }, []);
 
-  // authFetch : helper pour faire des requêtes authentifiées (avec le token)
+  // ============================================
+  // ✅ CHANGEMENT 5 : authFetch avec auto-refresh
+  // ============================================
   const authFetch = useCallback(
     async (url, options = {}) => {
       const headers = { ...(options.headers || {}) };
       const body = options.body;
 
-      // Si on envoie du JSON (pas un FormData), on met le bon Content-Type
+      // Ajoute le Content-Type si nécessaire
       if (!(body instanceof FormData) && !headers['Content-Type'] && !headers['content-type']) {
         headers['Content-Type'] = 'application/json';
       }
 
-      // Si on a un token, on l'ajoute dans Authorization
-      if (token) headers.Authorization = `Bearer ${token}`;
+      // Ajoute l'accessToken si présent
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
 
-      const res = await fetch(url, { ...options, headers });
+      let res = await fetch(url, { ...options, headers });
 
-      // Si le backend renvoie 401, on force la déconnexion
+      // ✅ Si 401 (token expiré) : tenter un refresh
+      if (res.status === 401 && refreshToken) {
+        console.log('[AUTHFETCH] 401 reçu, tentative de refresh...');
+        
+        const newAccessToken = await refreshAccessToken();
+        
+        if (newAccessToken) {
+          // Retry la requête avec le nouveau token
+          console.log('[AUTHFETCH] Retry avec nouveau token');
+          headers.Authorization = `Bearer ${newAccessToken}`;
+          res = await fetch(url, { ...options, headers });
+        } else {
+          // Refresh échoué → déconnexion
+          throw new Error("Session expirée, veuillez vous reconnecter");
+        }
+      }
+
+      // Si toujours 401 après refresh → déconnexion
       if (res.status === 401) {
         logout();
-        throw new Error('Non autorisé (token invalide)');
+        throw new Error("Non autorisé (session invalide)");
       }
 
       return res;
     },
-    [token, logout]
+    [accessToken, refreshToken, refreshAccessToken, logout]
   );
 
-  // On expose tout ça au reste de l'application via le contexte
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register, authFetch }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        accessToken,           // ✅ Expose accessToken
+        refreshToken,          // ✅ Expose refreshToken
+        login, 
+        logout, 
+        register, 
+        authFetch,
+        refreshAccessToken     // ✅ Expose la fonction de refresh
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
+
+/*
+CHANGEMENTS EFFECTUÉS :
+1. ✅ Deux tokens au lieu d'un (accessToken + refreshToken)
+2. ✅ Fonction refreshAccessToken() pour renouveler automatiquement
+3. ✅ login/register stockent les 2 tokens
+4. ✅ authFetch gère automatiquement le refresh quand 401
+5. ✅ logout optionnellement appelle /api/auth/logout
+6. ✅ Expose les tokens et la fonction de refresh pour les composants
+
+FLUX :
+- User se connecte → reçoit 2 tokens
+- Utilise authFetch pour les requêtes protégées
+- Si accessToken expire → auto-refresh automatique (transparent pour l'user)
+- Si refresh échoue → déconnexion
+- User clique logout → supprime les tokens
+*/
