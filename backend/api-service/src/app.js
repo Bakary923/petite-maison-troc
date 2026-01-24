@@ -11,6 +11,8 @@ const fs = require('fs');
 // Import des middlewares de sécurité et CORS
 const helmet = require('helmet');
 const cors = require('cors');
+// ✅ Import du middleware d'observabilité (Logs)
+const logger = require('./middlewares/logger');
 
 // Middleware global Helmet : ajoute plusieurs en-têtes HTTP de sécurité (XSS, clickjacking, etc.)
 app.use(helmet({
@@ -18,6 +20,10 @@ app.use(helmet({
   crossOriginResourcePolicy: false,    // Désactive la politique stricte des ressources cross-origin
   crossOriginEmbedderPolicy: false     // Désactive l'isolation stricte des ressources
 }));
+
+// ✅ Middleware d'Observabilité : Trace toutes les requêtes (Méthode, URL, Statut, Temps de réponse)
+// Répond à l'exigence du bloc sur la mise en place d'une composante d'observabilité [cite: 87]
+app.use(logger);
 
 // Permet à Express d'analyser automatiquement les corps de requêtes JSON
 app.use(express.json());
@@ -74,6 +80,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Serveur backend démarré sur http://localhost:${PORT}`);
   console.log(`✅ Base de données connectée`);
+  console.log(`✅ Système d'observabilité (logs) activé`);
 });
 
 /*

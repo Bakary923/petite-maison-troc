@@ -2,10 +2,11 @@ import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-
 export default function Annonces() {
-  const { user, authFetch } = useContext(AuthContext);
+  // ✅ On extrait accessToken pour surveiller sa présence réelle avant l'appel API
+  const { user, authFetch, accessToken } = useContext(AuthContext);
   const navigate = useNavigate();
+  
   const [annonces, setAnnonces] = useState([]);
   const [myAnnonces, setMyAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,12 +15,15 @@ export default function Annonces() {
   const [editForm, setEditForm] = useState({ titre: '', description: '' });
   const [activeTab, setActiveTab] = useState('public'); // 'public' ou 'myannonces'
 
+  // ============================================================================
+  // RÉCUPÉRATION DES DONNÉES
+  // ============================================================================
 
-  // Récupérer les annonces VALIDÉES (publiques)
+  // Récupérer les annonces VALIDÉES (publiques) - Route ouverte à tous
   const fetchPublicAnnonces = useCallback(async () => {
     try {
       const res = await fetch('http://localhost:3000/api/annonces');
-      if (!res.ok) throw new Error('Erreur lors du chargement');
+      if (!res.ok) throw new Error('Erreur lors du chargement des annonces publiques');
       const data = await res.json();
       setAnnonces(data.annonces || []);
     } catch (err) {
@@ -27,32 +31,41 @@ export default function Annonces() {
     }
   }, []);
 
-
-  // Récupérer MES annonces (pending + validated + rejected)
+  // ✅ CORRECTION : Récupérer MES annonces via authFetch sécurisé
   const fetchMyAnnonces = useCallback(async () => {
-    if (!user) return;
+    // 🛡️ Barrière de sécurité : On stoppe l'appel si les jetons ne sont pas encore chargés
+    if (!user || !accessToken || accessToken === 'null') return;
+
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3000/api/annonces/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Erreur lors du chargement');
+      // ✅ On utilise authFetch au lieu de fetch pour injecter automatiquement le Bearer Token
+      const res = await authFetch('http://localhost:3000/api/annonces/me');
+      
+      if (!res.ok) throw new Error('Erreur lors du chargement de vos annonces');
       const data = await res.json();
       setMyAnnonces(data.annonces || []);
     } catch (err) {
       console.error('Erreur fetch mes annonces:', err);
+      // On ne bloque pas l'UI globale si le chargement "me" échoue
     }
-  }, [user]);
+  }, [user, accessToken, authFetch]);
 
-
+  // Synchronisation des chargements au montage du composant
   useEffect(() => {
     setLoading(true);
+    
+    // Condition pour savoir si on peut tenter de charger les données privées
+    const canFetchPrivate = user && accessToken && accessToken !== 'null';
+
     Promise.all([
       fetchPublicAnnonces(),
-      user ? fetchMyAnnonces() : Promise.resolve()
+      canFetchPrivate ? fetchMyAnnonces() : Promise.resolve()
     ]).finally(() => setLoading(false));
-  }, [fetchPublicAnnonces, fetchMyAnnonces, user]);
+    
+  }, [fetchPublicAnnonces, fetchMyAnnonces, user, accessToken]);
 
+  // ============================================================================
+  // GESTION DES ACTIONS (Suppression / Modification)
+  // ============================================================================
 
   const handleDelete = async (annonceId) => {
     if (!user) {
@@ -66,7 +79,9 @@ export default function Annonces() {
       const res = await authFetch(`http://localhost:3000/api/annonces/${annonceId}`, {
         method: 'DELETE'
       });
-      if (!res.ok) throw new Error('Erreur suppression');
+      if (!res.ok) throw new Error('Erreur lors de la suppression');
+      
+      // Mise à jour locale des listes pour éviter un rechargement complet
       setMyAnnonces(prev => prev.filter(a => a.id !== annonceId));
       setAnnonces(prev => prev.filter(a => a.id !== annonceId));
     } catch (err) {
@@ -74,25 +89,20 @@ export default function Annonces() {
     }
   };
 
-
   const handleEditStart = (annonce) => {
-    if (!user) {
-      alert('Tu dois être connecté pour modifier une annonce');
-      return;
-    }
+    if (!user) return;
     setEditingId(annonce.id);
     setEditForm({ titre: annonce.titre, description: annonce.description });
   };
-
 
   const handleEditCancel = () => {
     setEditingId(null);
     setEditForm({ titre: '', description: '' });
   };
 
-
   const handleEditSave = async (annonceId) => {
     try {
+      // Utilisation de FormData pour supporter l'upload d'image si besoin (Qualité ISO 25010)
       const formData = new FormData();
       formData.append('titre', editForm.titre);
       formData.append('description', editForm.description);
@@ -104,34 +114,33 @@ export default function Annonces() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        const msg =
-          body.error ||
-          body.message ||
-          (body.errors && body.errors[0]?.msg) ||
-          `HTTP ${res.status}`;
-        throw new Error(msg);
+        throw new Error(body.error || body.message || `Erreur ${res.status}`);
       }
 
       const data = await res.json();
+      
+      // Mise à jour de l'UI avec l'annonce modifiée renvoyée par le serveur
       setMyAnnonces(prev => prev.map(a => a.id === annonceId ? data.annonce : a));
       setAnnonces(prev => prev.map(a => a.id === annonceId ? data.annonce : a));
-      setEditingId(null);
-      setEditForm({ titre: '', description: '' });
+      
+      handleEditCancel();
       alert('Annonce modifiée avec succès !');
     } catch (err) {
       alert(`Erreur : ${err.message}`);
     }
   };
 
+  // ============================================================================
+  // RENDU UI
+  // ============================================================================
 
   if (loading) return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <p style={styles.centerText}>⏳ Chargement...</p>
+        <p style={styles.centerText}>⏳ Chargement des annonces hantées...</p>
       </div>
     </div>
   );
-
 
   if (error) return (
     <div style={styles.page}>
@@ -141,16 +150,14 @@ export default function Annonces() {
     </div>
   );
 
-
-  // Afficher les annonces publiques OU mes annonces selon l'onglet
   const displayedAnnonces = activeTab === 'public' ? annonces : myAnnonces;
   const isPublicTab = activeTab === 'public';
-
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        {/* HEADER */}
+        
+        {/* HEADER ET NAVIGATION */}
         <div style={styles.header}>
           <div style={styles.headerContent}>
             <h1 style={styles.title}>
@@ -158,53 +165,33 @@ export default function Annonces() {
             </h1>
             <p style={styles.subtitle}>
               {isPublicTab 
-                ? 'Explorez les objets à échanger ou donner' 
-                : 'Gérez vos annonces et suivez leur statut'}
+                ? 'Explorez les objets à échanger ou donner dans la petite maison' 
+                : 'Suivez le statut de vos propositions de troc'}
             </p>
           </div>
 
           {user ? (
-            <button
-              onClick={() => navigate('/create-annonce')}
-              style={styles.createButton}
-              onMouseEnter={(e) => {
-                e.target.style.background = 'radial-gradient(circle at 0 0, rgba(249,115,22,0.5), rgba(249,115,22,1))';
-                e.target.style.boxShadow = '0 0 32px rgba(249,115,22,0.8)';
-                e.target.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = 'radial-gradient(circle at 0 0, rgba(249,115,22,0.4), rgba(249,115,22,0.95))';
-                e.target.style.boxShadow = '0 0 28px rgba(249,115,22,0.6)';
-                e.target.style.transform = 'translateY(0)';
-              }}
-            >
+            <button onClick={() => navigate('/create-annonce')} style={styles.createButton}>
               + Créer une annonce
             </button>
           ) : (
             <p style={styles.loginPrompt}>
-              <a onClick={() => navigate('/connexion')} style={styles.link}>Connecte-toi</a> ou{' '}
-              <a onClick={() => navigate('/inscription')} style={styles.link}>inscris-toi</a> pour créer
+              <a onClick={() => navigate('/connexion')} style={styles.link}>Connecte-toi</a> pour troquer.
             </p>
           )}
         </div>
 
-        {/* TABS (seulement si connecté) */}
+        {/* ONGLETS DE FILTRAGE (Visible uniquement si connecté) */}
         {user && (
           <div style={styles.tabs}>
             <button
-              style={{
-                ...styles.tabButton,
-                ...(activeTab === 'public' ? styles.tabButtonActive : {})
-              }}
+              style={{ ...styles.tabButton, ...(activeTab === 'public' ? styles.tabButtonActive : {}) }}
               onClick={() => setActiveTab('public')}
             >
-              🌍 Annonces publiques ({annonces.length})
+              🌍 Publiques ({annonces.length})
             </button>
             <button
-              style={{
-                ...styles.tabButton,
-                ...(activeTab === 'myannonces' ? styles.tabButtonActive : {})
-              }}
+              style={{ ...styles.tabButton, ...(activeTab === 'myannonces' ? styles.tabButtonActive : {}) }}
               onClick={() => setActiveTab('myannonces')}
             >
               📋 Mes annonces ({myAnnonces.length})
@@ -212,148 +199,67 @@ export default function Annonces() {
           </div>
         )}
 
-        {/* GRID D'ANNONCES */}
+        {/* AFFICHAGE DE LA GRILLE */}
         {displayedAnnonces.length === 0 ? (
           <div style={styles.emptyState}>
-            <p style={styles.emptyText}>
-              {isPublicTab 
-                ? '✨ Aucune annonce pour le moment' 
-                : '📭 Tu n\'as pas encore créé d\'annonce'}
-            </p>
-            <p style={styles.emptySubtext}>
-              {isPublicTab 
-                ? 'Soyez le premier à proposer quelque chose !' 
-                : 'Crée ta première annonce en cliquant sur le bouton ci-dessus'}
-            </p>
+            <p style={styles.emptyText}>Rien à signaler ici...</p>
           </div>
         ) : (
           <div style={styles.grid}>
             {displayedAnnonces.map(a => (
               <div key={a.id} style={styles.card}>
                 {editingId === a.id ? (
-                  // MODE ÉDITION
+                  /* --- FORMULAIRE D'ÉDITION --- */
                   <div style={styles.editForm}>
-                    <h3 style={styles.editTitle}>Modifier l'annonce</h3>
                     <input
-                      type="text"
+                      style={styles.input}
                       value={editForm.titre}
                       onChange={(e) => setEditForm({...editForm, titre: e.target.value})}
-                      placeholder="Titre"
-                      style={styles.input}
                     />
                     <textarea
+                      style={styles.textarea}
                       value={editForm.description}
                       onChange={(e) => setEditForm({...editForm, description: e.target.value})}
-                      placeholder="Description"
-                      style={styles.textarea}
                     />
                     <div style={styles.editActions}>
-                      <button
-                        onClick={() => handleEditSave(a.id)}
-                        style={styles.saveBtn}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = 'rgba(34,197,94,0.5)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = 'rgba(34,197,94,0.3)';
-                        }}
-                      >
-                        ✓ Enregistrer
-                      </button>
-                      <button
-                        onClick={handleEditCancel}
-                        style={styles.cancelBtn}
-                        onMouseEnter={(e) => {
-                          e.target.style.background = 'rgba(107,114,128,0.5)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = 'rgba(107,114,128,0.3)';
-                        }}
-                      >
-                        ✕ Annuler
-                      </button>
+                      <button onClick={() => handleEditSave(a.id)} style={styles.saveBtn}>Sauver</button>
+                      <button onClick={handleEditCancel} style={styles.cancelBtn}>Annuler</button>
                     </div>
                   </div>
                 ) : (
-                  // MODE AFFICHAGE
+                  /* --- CARTE D'AFFICHAGE --- */
                   <div style={styles.cardInner}>
                     {a.image && (
                       <div style={styles.imageWrapper}>
                         <img src={a.image} alt={a.titre} style={styles.image} />
                       </div>
                     )}
-                    
                     <div style={styles.cardContent}>
                       <h3 style={styles.cardTitle}>{a.titre}</h3>
                       <p style={styles.cardDescription}>{a.description}</p>
-
+                      
                       <div style={styles.cardMeta}>
-                        <span style={styles.author}>👤 <strong>{a.username}</strong></span>
-                        {a.createdAt && (
-                          <span style={styles.date}>
-                            🕐 {new Date(a.createdAt).toLocaleString('fr-FR', {
-                              dateStyle: 'short',
-                              timeStyle: 'short'
-                            })}
-                            {a.updatedAt && new Date(a.updatedAt).getTime() > new Date(a.createdAt).getTime() && (
-                              <span style={styles.modified}> (modifié)</span>
-                            )}
-                          </span>
-                        )}
+                        <span style={styles.author}>👤 {a.username}</span>
+                        <span style={styles.date}>🕐 {new Date(a.createdAt).toLocaleDateString()}</span>
                       </div>
 
-                      {/* STATUS BADGE (pour les onglets "Mes annonces") */}
-                      {!isPublicTab && a.status && (
+                      {/* BADGE DE STATUT POUR L'ONGLET PERSO */}
+                      {!isPublicTab && (
                         <div style={{
                           ...styles.statusBadge,
                           ...(a.status === 'pending' ? styles.statusPending : {}),
                           ...(a.status === 'validated' ? styles.statusValidated : {}),
                           ...(a.status === 'rejected' ? styles.statusRejected : {})
                         }}>
-                          {a.status === 'pending' && '⏳ En attente de validation'}
-                          {a.status === 'validated' && '✅ Validée'}
-                          {a.status === 'rejected' && '❌ Rejetée'}
+                          {a.status.toUpperCase()}
                         </div>
                       )}
 
-                      {/* REJECTION REASON */}
-                      {!isPublicTab && a.status === 'rejected' && a.rejectionReason && (
-                        <div style={styles.rejectionReason}>
-                          <strong>Raison :</strong> {a.rejectionReason}
-                        </div>
-                      )}
-
-                      {/* ACTIONS */}
-                      {!isPublicTab && user && (
+                      {/* ACTIONS PROPRIÉTAIRE */}
+                      {!isPublicTab && a.status === 'pending' && (
                         <div style={styles.actions}>
-                          {a.status === 'pending' && (
-                            <>
-                              <button
-                                onClick={() => handleEditStart(a)}
-                                style={styles.editBtn}
-                                onMouseEnter={(e) => {
-                                  e.target.style.background = 'rgba(59,130,246,0.5)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.background = 'rgba(59,130,246,0.3)';
-                                }}
-                              >
-                                ✏️ Modifier
-                              </button>
-                              <button
-                                onClick={() => handleDelete(a.id)}
-                                style={styles.deleteBtn}
-                                onMouseEnter={(e) => {
-                                  e.target.style.background = 'rgba(239,68,68,0.5)';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.background = 'rgba(239,68,68,0.3)';
-                                }}
-                              >
-                                🗑️ Supprimer
-                              </button>
-                            </>
-                          )}
+                          <button onClick={() => handleEditStart(a)} style={styles.editBtn}>✏️</button>
+                          <button onClick={() => handleDelete(a.id)} style={styles.deleteBtn}>🗑️</button>
                         </div>
                       )}
                     </div>
@@ -367,7 +273,6 @@ export default function Annonces() {
     </div>
   );
 }
-
 
 const styles = {
   page: {

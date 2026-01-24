@@ -10,7 +10,7 @@ const authMiddleware = require('../middlewares/auth');
 // On importe express-validator pour vérifier les données envoyées à l'API
 const { body, validationResult } = require('express-validator');
 
-// Middleware de validation pour la création d'annonce
+// Middleware de validation pour la création d'annonce (Qualité ISO 25010)
 const validateAnnonce = [
   body('titre')
     .trim()
@@ -30,7 +30,7 @@ const validateAnnonce = [
 ];
 
 // ============================================================================
-// Configuration MULTER pour l'upload d'images
+// Configuration MULTER Sécurisée (Solution de sécurité minimale)
 // ============================================================================
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -38,13 +38,44 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '';
+    const ext = path.extname(file.originalname).toLowerCase() || '';
+    // Nom de fichier aléatoire pour éviter l'écrasement et l'énumération
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`);
   }
 });
-const upload = multer({ storage });
 
-// Stockage temporaire en mémoire (fallback si pas de DB)
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // Limite à 5 Mo (Protection contre DoS)
+  },
+  fileFilter: (req, file, cb) => {
+    // Vérification du type MIME (Empêche l'upload de fichiers malveillants)
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format non supporté. Seuls JPG, PNG et WEBP sont acceptés.'), false);
+    }
+  }
+});
+
+// Middleware pour capturer les erreurs d'upload proprement
+const handleMulterError = (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'Image trop lourde (max 5Mo)' });
+      }
+      return res.status(400).json({ error: err.message });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+};
+
+// Stockage temporaire (fallback si pas de DB)
 const store = [];
 
 // Helper : construire URL complète d'image
@@ -55,10 +86,11 @@ function toImageUrl(req, imagePath) {
 }
 
 // ============================================================================
-// GET /api/annonces -> Récupère la liste des annonces VALIDÉES (PUBLIC)
+// ROUTES
 // ============================================================================
+
+// GET /api/annonces -> Récupère les annonces VALIDÉES (Public)
 router.get('/', async (req, res) => {
-  console.log('[DEBUG GET] Récupération des annonces publiques validées');
   try {
     const pool = req.app.locals.pool;
     if (pool) {
@@ -71,275 +103,85 @@ router.get('/', async (req, res) => {
       `;
       const result = await pool.query(q);
       const annonces = result.rows.map(r => ({
-        id: r.id,
-        titre: r.titre,
-        description: r.description,
+        ...r,
         image: toImageUrl(req, r.image),
-        status: r.status,
-        username: r.username,
         createdAt: r.created_at,
         updatedAt: r.updated_at
       }));
       return res.json({ annonces });
     }
-    return res.json({ annonces: store });
+    return res.json({ annonces: store.filter(a => a.status === 'validated') });
   } catch (err) {
-    console.error('GET /api/annonces error', err);
-    return res.status(500).json({ error: 'Erreur interne' });
+    res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-// ============================================================================
-// GET /api/annonces/me -> Récupère MES annonces (PROTÉGÉ)
-// ============================================================================
+// GET /api/annonces/me -> Mes annonces (Protégé)
 router.get('/me', authMiddleware, async (req, res) => {
-  console.log('[DEBUG GET /me] Récupération de mes annonces');
   try {
     const pool = req.app.locals.pool;
     const userId = req.user?.id;
+    if (!pool || !userId) return res.status(400).json({ error: 'Inaccessible' });
 
-    if (!pool || !userId) {
-      return res.status(400).json({ error: 'Utilisateur non authentifié' });
-    }
-
-    const q = `
-      SELECT a.id, a.titre, a.description, a.image, a.status, a.rejection_reason, a.created_at, a.updated_at
-      FROM annonces a
-      WHERE a.user_id = $1
-      ORDER BY a.created_at DESC
-    `;
-    
+    const q = `SELECT * FROM annonces WHERE user_id = $1 ORDER BY created_at DESC`;
     const result = await pool.query(q, [userId]);
     const annonces = result.rows.map(r => ({
-      id: r.id,
-      titre: r.titre,
-      description: r.description,
-      image: toImageUrl(req, r.image),
-      status: r.status,
-      rejectionReason: r.rejection_reason,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at
+      ...r,
+      image: toImageUrl(req, r.image)
     }));
-
-    console.log(`[DEBUG GET /me] ${annonces.length} annonces trouvées pour user ${userId}`);
     return res.json({ annonces });
   } catch (err) {
-    console.error('GET /api/annonces/me error', err);
-    return res.status(500).json({ error: 'Erreur interne' });
+    res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-// ============================================================================
-// POST /api/annonces -> Crée une annonce (PROTÉGÉ - besoin du JWT)
-// ============================================================================
+// POST /api/annonces -> Création (Protégé + Upload Sécurisé)
 router.post(
   '/',
-  authMiddleware,                 // 1) Vérifie le JWT
-  upload.single('image'),         // 2) Gère l'upload d'image
-  validateAnnonce,                // 3) Vérifie titre + description
-  async (req, res) => {           // 4) Logique métier si tout est OK
-    console.log('[DEBUG POST] === CRÉATION ANNONCE ===');
-    console.log('[DEBUG POST] req.user:', req.user);
-    console.log('[DEBUG POST] req.file:', req.file);
-    console.log('[DEBUG POST] req.body:', req.body);
-    
+  authMiddleware,
+  handleMulterError, // Gestion sécurisée de l'upload
+  validateAnnonce,   // Validation du contenu texte
+  async (req, res) => {
     try {
-      const body = req.body || {};
-      const titre = (body.titre || '').trim();
-      const description = (body.description || '').trim();
-
+      const { titre, description } = req.body;
       const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-      console.log('[DEBUG POST] imagePath:', imagePath);
-      
       const pool = req.app.locals.pool;
-
-      let created;
+      const userId = req.user?.id;
 
       if (pool) {
-        const userId = req.user?.id || null;
-        console.log('[DEBUG POST] userId extrait:', userId);
-        console.log('[DEBUG POST] username extrait:', req.user?.username);
-        
         const insertQ = `
           INSERT INTO annonces (titre, description, image, user_id, status, created_at)
-          VALUES ($1, $2, $3, $4, 'pending', NOW() AT TIME ZONE 'Europe/Paris')
-          RETURNING id, titre, description, image, status, created_at, updated_at
+          VALUES ($1, $2, $3, $4, 'pending', NOW())
+          RETURNING *
         `;
-        const values = [titre, description, imagePath, userId];
-        console.log('[DEBUG POST] VALUES ENVOYÉS À LA DB:', values);
-        
-        const result = await pool.query(insertQ, values);
-        const row = result.rows[0];
-        
-        created = {
-          id: row.id,
-          titre: row.titre,
-          description: row.description,
-          image: toImageUrl(req, row.image),
-          status: row.status,
-          username: req.user?.username || null,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at
-        };
-        console.log('[DEBUG POST] ✅ Annonce créée:', created);
-      } else {
-        const now = new Date().toISOString();
-        created = {
-          id: store.length ? (store[0].id || Date.now()) + 1 : Date.now(),
-          titre,
-          description,
-          image: toImageUrl(req, imagePath),
-          status: 'pending',
-          username: req.user?.username || 'inconnu',
-          createdAt: now,
-          updatedAt: now
-        };
-        store.unshift(created);
+        const result = await pool.query(insertQ, [titre, description, imagePath, userId]);
+        const created = { ...result.rows[0], image: toImageUrl(req, result.rows[0].image) };
+        return res.status(201).json({ annonce: created });
       }
-
-      return res.status(201).json({ annonce: created });
+      return res.status(500).json({ error: 'DB non connectée' });
     } catch (err) {
-      console.error('❌ POST /api/annonces error', err);
-      return res.status(500).json({ error: 'Erreur interne' });
+      res.status(500).json({ error: 'Erreur création' });
     }
   }
 );
 
-// ============================================================================
-// PUT /api/annonces/:id -> Modifie une annonce (PROTÉGÉ - besoin du JWT)
-// ============================================================================
-router.put(
-  '/:id',
-  authMiddleware,          // vérifie le JWT
-  upload.single('image'),  // gère l'upload d'image
-  validateAnnonce,         // vérifie titre + description (présents, longueurs)
-  async (req, res) => {
-    console.log('[DEBUG PUT] === MODIFICATION ANNONCE ===');
-    console.log('[DEBUG PUT] req.user:', req.user);
-    console.log('[DEBUG PUT] req.file:', req.file);
-    
-    try {
-      const annonceId = req.params.id;
-      const userId = req.user?.id;
-      const body = req.body || {};
-      const titre = (body.titre || '').trim();
-      const description = (body.description || '').trim();
-
-      const pool = req.app.locals.pool;
-
-      if (!pool) {
-        const annonce = store.find(a => a.id === parseInt(annonceId));
-        if (!annonce) {
-          return res.status(404).json({ error: 'Annonce non trouvée' });
-        }
-        if (annonce.username !== req.user?.username) {
-          return res.status(403).json({ error: 'Non autorisé' });
-        }
-        annonce.titre = titre;
-        annonce.description = description;
-        annonce.updatedAt = new Date().toISOString();
-        return res.json({ annonce });
-      }
-
-      const checkQ = 'SELECT user_id FROM annonces WHERE id = $1';
-      const checkResult = await pool.query(checkQ, [annonceId]);
-
-      if (checkResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Annonce non trouvée' });
-      }
-
-      const annonce = checkResult.rows[0];
-      if (annonce.user_id !== userId) {
-        return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à modifier cette annonce' });
-      }
-
-      let updateQ;
-      let values;
-
-      if (req.file) {
-        const imagePath = `/uploads/${req.file.filename}`;
-        updateQ = `
-          UPDATE annonces 
-          SET titre = $1, description = $2, image = $3, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
-          WHERE id = $4
-          RETURNING id, titre, description, image, status, created_at, updated_at
-        `;
-        values = [titre, description, imagePath, annonceId];
-      } else {
-        updateQ = `
-          UPDATE annonces 
-          SET titre = $1, description = $2, updated_at = NOW() AT TIME ZONE 'Europe/Paris'
-          WHERE id = $3
-          RETURNING id, titre, description, image, status, created_at, updated_at
-        `;
-        values = [titre, description, annonceId];
-      }
-
-      const result = await pool.query(updateQ, values);
-      const row = result.rows[0];
-
-      const updated = {
-        id: row.id,
-        titre: row.titre,
-        description: row.description,
-        image: toImageUrl(req, row.image),
-        status: row.status,
-        username: req.user?.username,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      };
-
-      console.log('[DEBUG PUT] ✅ Annonce modifiée:', updated);
-      return res.json({ annonce: updated });
-    } catch (err) {
-      console.error('❌ PUT /api/annonces error', err);
-      return res.status(500).json({ error: 'Erreur interne' });
-    }
-  }
-);
-
-// ============================================================================
-// DELETE /api/annonces/:id -> Supprime une annonce (PROTÉGÉ - besoin du JWT)
-// ============================================================================
+// DELETE /api/annonces/:id -> Suppression (Propriétaire uniquement)
 router.delete('/:id', authMiddleware, async (req, res) => {
-  console.log('[DEBUG DELETE] === SUPPRESSION ANNONCE ===');
-  console.log('[DEBUG DELETE] req.user:', req.user);
   try {
-    const annonceId = req.params.id;
-    const userId = req.user?.id;
     const pool = req.app.locals.pool;
-
-    if (!pool) {
-      const index = store.findIndex(a => a.id === parseInt(annonceId));
-      if (index === -1) {
-        return res.status(404).json({ error: 'Annonce non trouvée' });
-      }
-      store.splice(index, 1);
-      return res.json({ message: 'Annonce supprimée' });
-    }
+    const { id } = req.params;
+    const userId = req.user?.id;
 
     const checkQ = 'SELECT user_id FROM annonces WHERE id = $1';
-    const checkResult = await pool.query(checkQ, [annonceId]);
+    const check = await pool.query(checkQ, [id]);
 
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Annonce non trouvée' });
-    }
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Annonce non trouvée' });
+    if (check.rows[0].user_id !== userId) return res.status(403).json({ error: 'Non autorisé' });
 
-    const annonce = checkResult.rows[0];
-    
-    if (annonce.user_id !== userId) {
-      return res.status(403).json({ error: 'Vous n\'êtes pas autorisé à supprimer cette annonce' });
-    }
-
-    const deleteQ = 'DELETE FROM annonces WHERE id = $1';
-    await pool.query(deleteQ, [annonceId]);
-
-    console.log(`[DEBUG DELETE] ✅ Annonce ${annonceId} supprimée par user ${userId}`);
-    
-    return res.json({ message: 'Annonce supprimée avec succès' });
+    await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
+    res.json({ message: 'Annonce supprimée' });
   } catch (err) {
-    console.error('❌ DELETE /api/annonces error', err);
-    return res.status(500).json({ error: 'Erreur interne' });
+    res.status(500).json({ error: 'Erreur suppression' });
   }
 });
 

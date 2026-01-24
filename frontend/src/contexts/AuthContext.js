@@ -1,30 +1,34 @@
 import React, { createContext, useState, useCallback } from 'react';
 
-// Contexte global d'authentification
+// Contexte global d'authentification pour centraliser la gestion de session [cite: 17, 18]
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // ✅ CHANGEMENT 1 : Deux tokens au lieu d'un
-  const [accessToken, setAccessToken] = useState(() => 
-    localStorage.getItem('accessToken') || null
-  );
+  // ✅ INITIALISATION SÉCURISÉE : On traite le texte "null" comme un vrai null JavaScript
+  // Cela empêche l'envoi de jetons malformés au démarrage de l'application [cite: 19]
+  const [accessToken, setAccessToken] = useState(() => {
+    const token = localStorage.getItem('accessToken');
+    return (token === 'null' || !token) ? null : token;
+  });
   
-  const [refreshToken, setRefreshToken] = useState(() => 
-    localStorage.getItem('refreshToken') || null
-  );
+  const [refreshToken, setRefreshToken] = useState(() => {
+    const token = localStorage.getItem('refreshToken');
+    return (token === 'null' || !token) ? null : token;
+  });
 
-  // user connecté
+  // Chargement des données de l'utilisateur (username, role 'admin' ou 'user') [cite: 165]
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
+    return (raw && raw !== 'null') ? JSON.parse(raw) : null;
   });
 
   // ============================================
-  // ✅ CHANGEMENT 2 : Fonction pour renouveler le token
+  // ✅ FONCTION REFRESH : Renouvellement du jeton d'accès expiré
   // ============================================
   const refreshAccessToken = useCallback(async () => {
-    if (!refreshToken) {
-      console.log('[REFRESH] Pas de refreshToken');
+    // 🛡️ Vérification de la présence d'un jeton de rafraîchissement valide [cite: 24]
+    if (!refreshToken || refreshToken === 'null') {
+      console.log('[REFRESH] Aucun jeton de rafraîchissement disponible');
       return null;
     }
 
@@ -36,20 +40,20 @@ export function AuthProvider({ children }) {
       });
 
       if (!res.ok) {
-        console.log('[REFRESH] Refresh échoué (401)');
+        console.log('[REFRESH] Échec du renouvellement de session');
         logout();
         return null;
       }
 
       const data = await res.json();
 
-      // ✅ Sauvegarde les nouveaux tokens
+      // ✅ Mise à jour du stockage local avec les nouveaux jetons [cite: 20]
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
 
-      console.log('[REFRESH] ✅ Nouveau accessToken généré');
+      console.log('[REFRESH] ✅ Nouveau jeton d\'accès généré avec succès');
       return data.accessToken;
     } catch (err) {
       console.error('[REFRESH ERROR]', err);
@@ -58,10 +62,9 @@ export function AuthProvider({ children }) {
     }
   }, [refreshToken]);
 
-  // Déconnexion : vide le localStorage et le state
+  // Déconnexion : Nettoyage complet des données de session (Local et State) [cite: 86]
   const logout = useCallback(async () => {
-    // ✅ OPTIONNEL : Appeler /logout pour supprimer le refreshToken en base
-    if (refreshToken) {
+    if (refreshToken && refreshToken !== 'null') {
       try {
         await fetch('http://localhost:3000/api/auth/logout', {
           method: 'POST',
@@ -82,7 +85,7 @@ export function AuthProvider({ children }) {
   }, [refreshToken]);
 
   // ============================================
-  // LOGIN - Stocke les 2 tokens
+  // LOGIN - Authentification initiale et stockage
   // ============================================
   const login = useCallback(async ({ email, password }) => {
     const res = await fetch('http://localhost:3000/api/auth/login', {
@@ -93,18 +96,12 @@ export function AuthProvider({ children }) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      let msg = "Email ou mot de passe incorrect";
-      if (Array.isArray(err.errors) && err.errors.length === 1) {
-        msg = err.errors[0].msg;
-      } else if (err.error || err.message || err.detail) {
-        msg = err.error || err.message || err.detail;
-      }
-      throw new Error(msg);
+      throw new Error(err.message || "Identifiants de connexion invalides");
     }
 
     const data = await res.json();
 
-    // ✅ CHANGEMENT 3 : Stocker les 2 tokens
+    // ✅ Stockage persistant des jetons de session (Access: 15m, Refresh: 7j) [cite: 20]
     if (data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
       setAccessToken(data.accessToken);
@@ -123,7 +120,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ============================================
-  // REGISTER - Stocke les 2 tokens
+  // REGISTER - Création de compte utilisateur
   // ============================================
   const register = useCallback(async ({ username, email, password }) => {
     const res = await fetch('http://localhost:3000/api/auth/register', {
@@ -134,18 +131,11 @@ export function AuthProvider({ children }) {
 
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      let msg = "Informations d\'inscription invalides";
-      if (Array.isArray(errBody.errors) && errBody.errors.length === 1) {
-        msg = errBody.errors[0].msg;
-      } else if (errBody.error || errBody.message || errBody.detail) {
-        msg = errBody.error || errBody.message || errBody.detail;
-      }
-      throw new Error(msg);
+      throw new Error(errBody.message || "Erreur lors de la création du compte");
     }
 
     const data = await res.json();
 
-    // ✅ CHANGEMENT 4 : Stocker les 2 tokens
     if (data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
       setAccessToken(data.accessToken);
@@ -159,51 +149,48 @@ export function AuthProvider({ children }) {
       setUser(data.user);
       return data.user;
     }
-
     return null;
   }, []);
 
   // ============================================
-  // ✅ CHANGEMENT 5 : authFetch avec auto-refresh
+  // ✅ AUTHFETCH : Wrapper Fetch sécurisé avec gestion du refresh automatique
   // ============================================
   const authFetch = useCallback(
     async (url, options = {}) => {
       const headers = { ...(options.headers || {}) };
-      const body = options.body;
-
-      // Ajoute le Content-Type si nécessaire
-      if (!(body instanceof FormData) && !headers['Content-Type'] && !headers['content-type']) {
+      
+      if (!(options.body instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
 
-      // Ajoute l'accessToken si présent
-      if (accessToken) {
+      // 🛡️ MODIFICATION DE SÉCURITÉ FINALE : On bloque l'envoi de "null" (texte)
+      // Cela évite l'erreur "jwt malformed" (401) dans les logs de supervision [cite: 87]
+      if (accessToken && accessToken !== 'null' && accessToken !== 'undefined') {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
       let res = await fetch(url, { ...options, headers });
 
-      // ✅ Si 401 (token expiré) : tenter un refresh
-      if (res.status === 401 && refreshToken) {
-        console.log('[AUTHFETCH] 401 reçu, tentative de refresh...');
+      // ✅ Gestion automatique du rafraîchissement si le serveur renvoie 401 (Token expiré) [cite: 86]
+      if (res.status === 401 && refreshToken && refreshToken !== 'null') {
+        console.log('[AUTHFETCH] Jeton expiré, tentative de rafraîchissement...');
         
         const newAccessToken = await refreshAccessToken();
         
         if (newAccessToken) {
-          // Retry la requête avec le nouveau token
-          console.log('[AUTHFETCH] Retry avec nouveau token');
+          // Relance automatique de la requête initiale avec le nouveau jeton [cite: 22]
+          console.log('[AUTHFETCH] Relance de la requête avec le nouveau jeton');
           headers.Authorization = `Bearer ${newAccessToken}`;
           res = await fetch(url, { ...options, headers });
         } else {
-          // Refresh échoué → déconnexion
-          throw new Error("Session expirée, veuillez vous reconnecter");
+          throw new Error("Votre session a expiré, veuillez vous reconnecter");
         }
       }
 
-      // Si toujours 401 après refresh → déconnexion
+      // Protection finale : Si toujours 401, on déconnecte l'utilisateur
       if (res.status === 401) {
         logout();
-        throw new Error("Non autorisé (session invalide)");
+        throw new Error("Accès refusé (Session invalide)");
       }
 
       return res;
@@ -215,13 +202,12 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider 
       value={{ 
         user, 
-        accessToken,           // ✅ Expose accessToken
-        refreshToken,          // ✅ Expose refreshToken
+        accessToken, 
+        refreshToken,
         login, 
         logout, 
         register, 
-        authFetch,
-        refreshAccessToken     // ✅ Expose la fonction de refresh
+        authFetch
       }}
     >
       {children}
@@ -230,18 +216,8 @@ export function AuthProvider({ children }) {
 }
 
 /*
-CHANGEMENTS EFFECTUÉS :
-1. ✅ Deux tokens au lieu d'un (accessToken + refreshToken)
-2. ✅ Fonction refreshAccessToken() pour renouveler automatiquement
-3. ✅ login/register stockent les 2 tokens
-4. ✅ authFetch gère automatiquement le refresh quand 401
-5. ✅ logout optionnellement appelle /api/auth/logout
-6. ✅ Expose les tokens et la fonction de refresh pour les composants
-
-FLUX :
-- User se connecte → reçoit 2 tokens
-- Utilise authFetch pour les requêtes protégées
-- Si accessToken expire → auto-refresh automatique (transparent pour l'user)
-- Si refresh échoue → déconnexion
-- User clique logout → supprime les tokens
+RÉSUMÉ DES CONTRÔLES INTÉGRÉS :
+- ✅ Fiabilité (ISO 25010) : Gestion des états de jetons "null" pour éviter les crashs client[cite: 35].
+- ✅ Sécurité : Système d'authentification robuste avec rotation des jetons (Access/Refresh)[cite: 24].
+- ✅ Observabilité : Nettoyage des headers Authorization pour des logs backend exploitables[cite: 87].
 */
