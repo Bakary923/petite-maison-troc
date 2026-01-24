@@ -1,13 +1,14 @@
 services:
+  # --- BASE DE DONNÉES ---
   postgres:
     image: postgres:16-alpine
-    container_name: ${DB_CONTAINER_NAME}
+    container_name: petite-maison-db
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT}:5432"
+    networks:
+      - petite-maison-network
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,22 +17,49 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- GESTION DB ---
   adminer:
     image: adminer:latest
-    container_name: ${ADMINER_CONTAINER_NAME}
+    container_name: petite-maison-adminer
     ports:
       - "${ADMINER_PORT}:8080"
     depends_on:
       - postgres
+    networks:
+      - petite-maison-network
+
+  # --- BACKEND API ---
+  api:
+    build: ./backend/api-service
+    image: petite-maison-backend-image # 👈 Force le nom de l'image
+    container_name: petite-maison-backend
+    restart: always
+    env_file: .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/api-service/uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - petite-maison-network
+
+  # --- FRONTEND REACT ---
+  frontend:
+    build: ./frontend
+    image: petite-maison-frontend-image # 👈 Force le nom de l'image
+    container_name: petite-maison-frontend
+    ports:
+      - "3001:80"
+    networks:
+      - petite-maison-network
+
+# --- CONFIGURATION RÉSEAU ET VOLUMES ---
+networks:
+  petite-maison-network:
+    name: petite-maison-network
+    driver: bridge
 
 volumes:
   postgres_data:
-
-
-# Explications :
-
-# postgres : lance PostgreSQL en local avec les identifiants choisis.
-
-# adminer : petit outil web pratique pour vérifier / manipuler ta base (accès sur http://localhost:8080).
-
-# volumes : assure la persistance des données, même si tu redémarres les containers.
