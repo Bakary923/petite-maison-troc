@@ -1,46 +1,47 @@
-// On importe bcrypt pour le hash des mots de passe
 const bcrypt = require('bcryptjs');
-// On importe jsonwebtoken pour créer et signer le token JWT
 const jwt = require('jsonwebtoken');
-// On récupère la clé secrète utilisée pour le JWT (penser à la mettre dans votre .env)
-const JWT_SECRET = process.env.JWT_SECRET;
-// On importe le pool PostgreSQL pour faire les requêtes SQL
+const crypto = require('crypto');
 const pool = require('../config/database');
 
-/*
-  Fonction d'inscription (register) :
-  - Récupère le nom, email, mot de passe envoyé dans la requête
-  - Vérifie que tous les champs sont présents
-  - Vérifie que l'email n'est pas déjà pris
-  - Hache le mot de passe
-  - Enregistre l'utilisateur en base
-  - ✅ GÉNÈRE UN TOKEN JWT ET LE RETOURNE
-  - Gère les erreurs (champs manquants, email déjà pris, erreur serveur)
-*/
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+// ============================================================================
+// Helper : Hasher un refresh token
+// ============================================================================
+function hashRefreshToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// ============================================================================
+// REGISTER
+// ============================================================================
 exports.register = async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Champs requis manquants' });
   }
+  
   try {
     // Vérifier si l'utilisateur existe déjà
     const existe = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existe.rows.length > 0) {
       return res.status(409).json({ error: 'Cet email existe déjà.' });
     }
+    
     // Hachage du mot de passe
     const hashed = await bcrypt.hash(password, 10);
+    
     // Insertion de l'utilisateur en base
     const result = await pool.query(
       'INSERT INTO users (username, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, username, email, role',
       [username, email, hashed, 'user']
     );
     
-    // ✅ Récupère l'user créé
     const user = result.rows[0];
     
-    // ✅ GÉNÈRE UN TOKEN JWT
-    const token = jwt.sign(
+    // ✅ Générer ACCESS TOKEN (15 min)
+    const accessToken = jwt.sign(
       {
         id: user.id,
         username: user.username,
@@ -48,10 +49,25 @@ exports.register = async (req, res) => {
         role: user.role
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '15m' }
     );
     
-    // ✅ RETOURNE LE TOKEN ET L'USER (comme le login)
+    // ✅ Générer REFRESH TOKEN (7 jours)
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // ✅ Stocker le refresh token hashé en base
+    const tokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    await pool.query(
+      'INSERT INTO refresh_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [tokenHash, user.id, expiresAt]
+    );
+    
     return res.status(201).json({
       message: 'Inscription réussie !',
       user: {
@@ -60,7 +76,8 @@ exports.register = async (req, res) => {
         email: user.email,
         role: user.role
       },
-      token: token
+      accessToken,
+      refreshToken
     });
   } catch (err) {
     console.error('[ERROR REGISTER]', err);
@@ -68,53 +85,34 @@ exports.register = async (req, res) => {
   }
 };
 
-/*
-  Fonction de connexion (login) :
-  - Récupère l'email et le mot de passe envoyés dans la requête HTTP POST
-  - Vérifie que les champs email et password sont bien renseignés
-  - Cherche en base l'utilisateur correspondant à cet email
-  - Si l'utilisateur existe, vérifie que le mot de passe fourni correspond à celui enregistré (en comparant avec le hash stocké)
-  - Si l'identifiant et le mot de passe sont validés :
-      - Génère un token JWT sécurisé contenant les infos principales de l'utilisateur (id, username, email, role), valide 24h
-      - Retourne au frontend :
-          - Un message de succès,
-          - Les infos utilisateur (toujours jamais le hash du mot de passe)
-          - Le token JWT à utiliser dans les prochaines requêtes authentifiées
-  - En cas d'échec (mauvais email ou mauvais mot de passe), renvoie une erreur explicite (sans indiquer si c'est l'email ou le mot de passe)
-  - En cas d'erreur serveur (bug, souci base...), renvoie une erreur 500 générique
-*/
+// ============================================================================
+// LOGIN
+// ============================================================================
 exports.login = async (req, res) => {
-  // On extrait l'email et le mot de passe envoyés dans la requête
   const { email, password } = req.body;
-
-  // Vérifie la présence de tous les champs
+  
   if (!email || !password) {
     return res.status(400).json({ error: 'Champs requis manquants' });
   }
-
+  
   try {
-    // On va chercher l'utilisateur correspondant à l'email dans la base
+    // Chercher l'utilisateur
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-
-    // S'il n'existe aucun utilisateur avec cet email, on renvoie une erreur 401
+    
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
-
-    // On récupère le premier (et unique) utilisateur trouvé
+    
     const user = result.rows[0];
-
-    // On compare le mot de passe donné avec le hash stocké en base
+    
+    // Vérifier le mot de passe
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      // Si le mot de passe ne correspond pas, on renvoie une erreur 401
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
-
-    // Si l'identifiant et le mot de passe sont ok, on génère un token JWT :
-    // - On encode dedans l'id, le username, l'email et le rôle
-    // - On signe le token avec la clé secrète (JWT_SECRET), valable 24h
-    const token = jwt.sign(
+    
+    // ✅ Générer ACCESS TOKEN (15 min)
+    const accessToken = jwt.sign(
       {
         id: user.id,
         username: user.username,
@@ -122,10 +120,25 @@ exports.login = async (req, res) => {
         role: user.role
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '15m' }
     );
-
-    // On renvoie la confirmation au frontend, les infos essentielles (jamais le hash) et le token JWT à utiliser ensuite
+    
+    // ✅ Générer REFRESH TOKEN (7 jours)
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // ✅ Stocker le refresh token hashé en base
+    const tokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    await pool.query(
+      'INSERT INTO refresh_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [tokenHash, user.id, expiresAt]
+    );
+    
     res.json({
       message: 'Connexion réussie !',
       user: {
@@ -134,22 +147,106 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role
       },
-      token: token
+      accessToken,
+      refreshToken
     });
-
   } catch (err) {
-    // En cas d'erreur interne (base down, bug JS...), on renvoie une erreur 500 générique
     console.error('[ERROR LOGIN]', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
 
-/*
-Ce contrôleur :
-- Récupère et vérifie les infos d'identification transmises par l'utilisateur
-- Protège les accès via le mot de passe hashé et vérifié avec bcrypt
-- Génère un token JWT sécurisé en cas de succès (clé secrète JWT_SECRET dans le .env)
-- Retourne toutes les infos utiles à l'utilisateur sans jamais exposer le mot de passe hashé
-- ✅ REGISTER ET LOGIN RETOURNENT TOUS LES DEUX LE TOKEN ET L'USER
-- Gère les erreurs de façon claire pour front et debug
-*/
+// ============================================================================
+// REFRESH TOKEN - Renouvelle l'access token
+// ============================================================================
+exports.refresh = async (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token manquant' });
+  }
+  
+  try {
+    // Vérifier le refresh token
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    
+    // Vérifier qu'il existe en base
+    const tokenHash = hashRefreshToken(refreshToken);
+    const result = await pool.query(
+      'SELECT * FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()',
+      [tokenHash]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Refresh token invalide ou expiré' });
+    }
+    
+    // Récupérer les infos de l'utilisateur
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.id]);
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Utilisateur non trouvé' });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // ✅ Générer un NOUVEAU access token
+    const newAccessToken = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    
+    // ✅ Générer un NOUVEAU refresh token (rotation)
+    const newRefreshToken = jwt.sign(
+      { id: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // ✅ Supprimer l'ancien refresh token
+    await pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
+    
+    // ✅ Stocker le nouveau refresh token
+    const newTokenHash = hashRefreshToken(newRefreshToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    await pool.query(
+      'INSERT INTO refresh_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [newTokenHash, user.id, expiresAt]
+    );
+    
+    res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    });
+  } catch (err) {
+    console.error('[ERROR REFRESH]', err.message);
+    res.status(401).json({ error: 'Refresh token invalide' });
+  }
+};
+
+// ============================================================================
+// LOGOUT - Supprimer le refresh token
+// ============================================================================
+exports.logout = async (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token manquant' });
+  }
+  
+  try {
+    const tokenHash = hashRefreshToken(refreshToken);
+    await pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [tokenHash]);
+    
+    res.json({ message: 'Déconnexion réussie' });
+  } catch (err) {
+    console.error('[ERROR LOGOUT]', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
