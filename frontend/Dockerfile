@@ -16,6 +16,9 @@ RUN npm run build
 # On utilise Nginx, beaucoup plus performant que Node pour servir des fichiers
 FROM nginx:stable-alpine
 
+# ✅ AJOUT : On copie la configuration personnalisée pour gérer le rafraîchissement (Refresh 404)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # On copie uniquement le résultat du build (dossier /build) dans le dossier public de Nginx
 COPY --from=build-stage /app/build /usr/share/nginx/html
 

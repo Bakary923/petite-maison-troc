@@ -4,13 +4,15 @@ const fs = require('fs');
 const multer = require('multer');
 const router = express.Router();
 
-// Import du middleware d'authentification
+// Import du middleware d'authentification pour sécuriser les routes privées
 const authMiddleware = require('../middlewares/auth');
 
 // On importe express-validator pour vérifier les données envoyées à l'API
 const { body, validationResult } = require('express-validator');
 
-// Middleware de validation pour la création d'annonce (Qualité ISO 25010)
+// ============================================================================
+// MIDDLEWARES DE VALIDATION (Qualité ISO 25010 : Fiabilité des données)
+// ============================================================================
 const validateAnnonce = [
   body('titre')
     .trim()
@@ -30,7 +32,7 @@ const validateAnnonce = [
 ];
 
 // ============================================================================
-// Configuration MULTER Sécurisée (Solution de sécurité minimale)
+// CONFIGURATION MULTER SÉCURISÉE (Gestion des fichiers uploads)
 // ============================================================================
 const uploadDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -39,7 +41,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || '';
-    // Nom de fichier aléatoire pour éviter l'écrasement et l'énumération
+    // Nom de fichier aléatoire pour éviter l'écrasement (Sécurité)
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2,8)}${ext}`);
   }
 });
@@ -47,10 +49,9 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // Limite à 5 Mo (Protection contre DoS)
+    fileSize: 5 * 1024 * 1024, // Limite à 5 Mo
   },
   fileFilter: (req, file, cb) => {
-    // Vérification du type MIME (Empêche l'upload de fichiers malveillants)
     const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
@@ -60,7 +61,6 @@ const upload = multer({
   }
 });
 
-// Middleware pour capturer les erreurs d'upload proprement
 const handleMulterError = (req, res, next) => {
   upload.single('image')(req, res, (err) => {
     if (err instanceof multer.MulterError) {
@@ -75,10 +75,7 @@ const handleMulterError = (req, res, next) => {
   });
 };
 
-// Stockage temporaire (fallback si pas de DB)
-const store = [];
-
-// Helper : construire URL complète d'image
+// Helper : construire l'URL complète d'image pour le Frontend (Adaptabilité Minikube)
 function toImageUrl(req, imagePath) {
   if (!imagePath) return null;
   if (imagePath.startsWith('http')) return imagePath;
@@ -89,7 +86,7 @@ function toImageUrl(req, imagePath) {
 // ROUTES
 // ============================================================================
 
-// GET /api/annonces -> Récupère les annonces VALIDÉES (Public)
+// GET /api/annonces -> Publiques (Validées)
 router.get('/', async (req, res) => {
   try {
     const pool = req.app.locals.pool;
@@ -110,13 +107,13 @@ router.get('/', async (req, res) => {
       }));
       return res.json({ annonces });
     }
-    return res.json({ annonces: store.filter(a => a.status === 'validated') });
+    return res.status(500).json({ error: 'Base de données non disponible' });
   } catch (err) {
     res.status(500).json({ error: 'Erreur interne' });
   }
 });
 
-// GET /api/annonces/me -> Mes annonces (Protégé)
+// GET /api/annonces/me -> Mes annonces
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
@@ -135,37 +132,64 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/annonces -> Création (Protégé + Upload Sécurisé)
-router.post(
-  '/',
-  authMiddleware,
-  handleMulterError, // Gestion sécurisée de l'upload
-  validateAnnonce,   // Validation du contenu texte
-  async (req, res) => {
-    try {
-      const { titre, description } = req.body;
-      const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
-      const pool = req.app.locals.pool;
-      const userId = req.user?.id;
+// POST /api/annonces -> Création
+router.post('/', authMiddleware, handleMulterError, validateAnnonce, async (req, res) => {
+  try {
+    const { titre, description } = req.body;
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+    const pool = req.app.locals.pool;
+    const userId = req.user?.id;
 
-      if (pool) {
-        const insertQ = `
-          INSERT INTO annonces (titre, description, image, user_id, status, created_at)
-          VALUES ($1, $2, $3, $4, 'pending', NOW())
-          RETURNING *
-        `;
-        const result = await pool.query(insertQ, [titre, description, imagePath, userId]);
-        const created = { ...result.rows[0], image: toImageUrl(req, result.rows[0].image) };
-        return res.status(201).json({ annonce: created });
-      }
-      return res.status(500).json({ error: 'DB non connectée' });
-    } catch (err) {
-      res.status(500).json({ error: 'Erreur création' });
-    }
+    const insertQ = `
+      INSERT INTO annonces (titre, description, image, user_id, status, created_at)
+      VALUES ($1, $2, $3, $4, 'pending', NOW())
+      RETURNING *
+    `;
+    const result = await pool.query(insertQ, [titre, description, imagePath, userId]);
+    const created = { ...result.rows[0], image: toImageUrl(req, result.rows[0].image) };
+    return res.status(201).json({ annonce: created });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur création' });
   }
-);
+});
 
-// DELETE /api/annonces/:id -> Suppression (Propriétaire uniquement)
+// ✅ MODIFICATION : PUT /api/annonces/:id
+// Correction de l'URL de l'image pour éviter les images cassées après sauvegarde
+router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
+  try {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+    const { titre, description } = req.body;
+    const userId = req.user?.id;
+
+    const checkQ = 'SELECT user_id FROM annonces WHERE id = $1';
+    const check = await pool.query(checkQ, [id]);
+
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Annonce non trouvée' });
+    if (check.rows[0].user_id !== userId) return res.status(403).json({ error: 'Non autorisé' });
+
+    const updateQ = `
+      UPDATE annonces 
+      SET titre = $1, description = $2, status = 'pending', updated_at = NOW()
+      WHERE id = $3
+      RETURNING *
+    `;
+    const result = await pool.query(updateQ, [titre, description, id]);
+    
+    // ✅ CRITIQUE : On transforme le chemin relatif en URL complète avec toImageUrl
+    const updatedAnnonce = { 
+      ...result.rows[0], 
+      image: toImageUrl(req, result.rows[0].image) 
+    };
+
+    res.json({ message: 'Annonce mise à jour avec succès', annonce: updatedAnnonce });
+  } catch (err) {
+    console.error('[UPDATE ERROR]', err);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour' });
+  }
+});
+
+// DELETE /api/annonces/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.locals.pool;

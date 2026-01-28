@@ -18,7 +18,7 @@ export default function Footer() {
                   <div style={styles.logoSquare} />
                 </div>
                 <div>
-                  <h3 style={styles.logoText}>Petite Maison Épouvante</h3>
+                  <h3 style={styles.logoText}>La Petite Maison Épouvante</h3>
                   <p style={styles.tagline}>Plateforme de troc communautaire</p>
                 </div>
               </div>
@@ -179,7 +179,7 @@ export default function Footer() {
           {/* BOTTOM SECTION */}
           <div style={styles.bottomSection}>
             <p style={styles.copyright}>
-              © 2026 Petite Maison Épouvante. Tous droits réservés.
+              © 2026 La Petite Maison Épouvante. Tous droits réservés.
             </p>
             <div style={styles.bottomLinks}>
               <button

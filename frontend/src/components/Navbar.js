@@ -26,7 +26,7 @@ export default function Navbar() {
           style={styles.logoContainer}
         >
           <div style={styles.logoMark} />
-          <span style={styles.logoText}>Petite Maison Épouvante</span>
+          <span style={styles.logoText}>La Petite Maison Épouvante</span>
         </div>
 
 

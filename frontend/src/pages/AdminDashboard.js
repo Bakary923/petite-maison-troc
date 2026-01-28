@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
+// ✅ Import de la configuration centralisée pour la portabilité du cluster (Minikube/OpenShift)
+import { API_BASE_URL } from '../config';
 import AdminCard from '../components/AdminCard';
 import '../styles/AdminDashboard.css';
 
 function AdminDashboard() {
-  // ✅ On utilise authFetch pour bénéficier de l'auto-refresh token du contexte
+  // ✅ On utilise authFetch pour bénéficier de l'auto-refresh token et de la sécurité JWT
   const { user, authFetch } = useContext(AuthContext);
   const [annonces, setAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('pending');
 
-  // Effet pour vérifier les droits d'accès
+  // ✅ SÉCURITÉ : Vérification des droits d'accès côté client (Role-Based Access Control)
   useEffect(() => {
     if (user && user.role !== 'admin') {
       setError('Vous n\'êtes pas autorisé à accéder à cette page');
@@ -19,9 +21,8 @@ function AdminDashboard() {
     }
   }, [user]);
 
-  // Effet pour charger les annonces
+  // ✅ EFFET DE CHARGEMENT : Récupération des annonces via le tunnel orchestré
   useEffect(() => {
-    // Si l'utilisateur n'est pas admin, on ne tente même pas l'appel
     if (!user || user.role !== 'admin') {
       return;
     }
@@ -29,13 +30,14 @@ function AdminDashboard() {
     const fetchAnnonces = async () => {
       try {
         setLoading(true);
-        let url = 'http://localhost:3000/api/admin/annonces';
+        // ✅ UTILISATION DYNAMIQUE : On remplace localhost:3000 par API_BASE_URL
+        let url = `${API_BASE_URL}/api/admin/annonces`;
 
         if (filter !== 'all') {
-          url = `http://localhost:3000/api/admin/annonces/${filter}`;
+          url = `${API_BASE_URL}/api/admin/annonces/${filter}`;
         }
 
-        // ✅ Utilisation de authFetch (plus besoin de headers manuels ni d'axios)
+        // ✅ OBSERVABILITÉ : authFetch gère les headers Authorization automatiquement
         const response = await authFetch(url);
         
         if (!response.ok) {
@@ -43,7 +45,6 @@ function AdminDashboard() {
         }
 
         const data = await response.json();
-        // Ton backend renvoie directement le tableau ou un objet avec une clé annonces
         setAnnonces(Array.isArray(data) ? data : (data.annonces || []));
         setError(null);
       } catch (err) {
@@ -57,9 +58,10 @@ function AdminDashboard() {
     fetchAnnonces();
   }, [filter, user, authFetch]);
 
+  // ✅ ACTION : Validation d'une annonce (PUT)
   const handleValidate = async (id) => {
     try {
-      const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}/validate`, {
+      const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}/validate`, {
         method: 'PUT'
       });
 
@@ -73,9 +75,10 @@ function AdminDashboard() {
     }
   };
 
+  // ✅ ACTION : Rejet d'une annonce avec motif
   const handleReject = async (id, reason) => {
     try {
-      const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}/reject`, {
+      const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}/reject`, {
         method: 'PUT',
         body: JSON.stringify({ reason })
       });
@@ -90,10 +93,11 @@ function AdminDashboard() {
     }
   };
 
+  // ✅ ACTION : Suppression définitive
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette annonce ?')) {
       try {
-        const response = await authFetch(`http://localhost:3000/api/admin/annonces/${id}`, {
+        const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}`, {
           method: 'DELETE'
         });
 
@@ -124,7 +128,7 @@ function AdminDashboard() {
 
   return (
     <div style={styles.adminDashboard}>
-      {/* Header */}
+      {/* Header avec injection du contexte utilisateur */}
       <div style={styles.header}>
         <div style={styles.headerContent}>
           <h1 style={styles.title}>🔐 Tableau de Bord Admin</h1>
@@ -133,7 +137,7 @@ function AdminDashboard() {
       </div>
 
       <div style={styles.container}>
-        {/* Filtres */}
+        {/* Filtres de modération */}
         <div style={styles.filterContainer}>
           {['pending', 'validated', 'rejected', 'all'].map((f) => (
             <button
@@ -152,10 +156,8 @@ function AdminDashboard() {
           ))}
         </div>
 
-        {/* Message d'erreur local */}
         {error && <div style={styles.errorMessage}>{error}</div>}
 
-        {/* Liste des annonces */}
         {annonces.length === 0 ? (
           <div style={styles.emptyState}>
             <p style={styles.emptyText}>Aucune annonce trouvée pour ce filtre.</p>
@@ -178,23 +180,16 @@ function AdminDashboard() {
   );
 }
 
-// Styles identiques à ta version précédente pour garder l'esthétique
+// Configuration des styles CSS-in-JS (identique pour la cohérence visuelle)
 const styles = {
-  adminDashboard: {
-    minHeight: '100vh',
-    backgroundColor: '#020617',
-    color: '#E5E7EB',
-  },
+  adminDashboard: { minHeight: '100vh', backgroundColor: '#020617', color: '#E5E7EB' },
   header: {
     background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(249, 115, 22, 0.2) 100%)',
     borderBottom: '1px solid rgba(249, 115, 22, 0.3)',
     padding: '40px 24px',
     marginBottom: '40px',
   },
-  headerContent: {
-    maxWidth: '1180px',
-    margin: '0 auto',
-  },
+  headerContent: { maxWidth: '1180px', margin: '0 auto' },
   title: {
     fontSize: '2.5em',
     fontWeight: 700,
@@ -204,22 +199,9 @@ const styles = {
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
   },
-  subtitle: {
-    fontSize: '1em',
-    color: '#9CA3AF',
-    margin: 0,
-  },
-  container: {
-    maxWidth: '1180px',
-    margin: '0 auto',
-    padding: '0 24px 40px 24px',
-  },
-  filterContainer: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '32px',
-    flexWrap: 'wrap',
-  },
+  subtitle: { fontSize: '1em', color: '#9CA3AF', margin: 0 },
+  container: { maxWidth: '1180px', margin: '0 auto', padding: '0 24px 40px 24px' },
+  filterContainer: { display: 'flex', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' },
   filterButton: {
     padding: '10px 20px',
     borderRadius: '8px',
@@ -260,11 +242,7 @@ const styles = {
     border: '1px dashed rgba(249, 115, 22, 0.3)',
     borderRadius: '12px',
   },
-  emptyText: {
-    color: '#9CA3AF',
-    fontSize: '1.1em',
-    margin: 0,
-  },
+  emptyText: { color: '#9CA3AF', fontSize: '1.1em', margin: 0 },
   loadingContainer: {
     display: 'flex',
     justifyContent: 'center',
@@ -282,15 +260,8 @@ const styles = {
     backgroundColor: '#020617',
     textAlign: 'center',
   },
-  errorTitle: {
-    fontSize: '2em',
-    color: '#ef4444',
-    marginBottom: '10px',
-  },
-  errorText: {
-    color: '#9CA3AF',
-    fontSize: '1em',
-  },
+  errorTitle: { fontSize: '2em', color: '#ef4444', marginBottom: '10px' },
+  errorText: { color: '#9CA3AF', fontSize: '1em' },
 };
 
 export default AdminDashboard;
