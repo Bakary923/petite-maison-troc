@@ -6,56 +6,77 @@ on:
 
 jobs:
   # ==========================================================
-  # PHASE 1 : VALIDATION DU CODE (Qualité, Tests & Sécurité)
+  # JOB BACKEND : Validation de la logique API
   # ==========================================================
-  validation:
+  backend-validation:
+    name: Validation Backend
     runs-on: ubuntu-latest
     steps:
-      # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
-      - name: Checkout Code
+      # ÉTAPE 1 : Checkout - GitHub Actions
+      # Justification : Point de départ de la traçabilité du développement.
+      - name: 1. Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Nécessaire pour l'analyse de dette technique Sonar
 
-      # --- CONFIGURATION ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # --- ÉTAPES 2 & 3 : VALIDATION BACKEND ---
-      - name: Backend (Install, Lint, Tests)
+      # ÉTAPE 2 : Install - npm install
+      # ÉTAPE 3 : Linting - ESLint (Vérifie la Maintenabilité)
+      # ÉTAPE 4 & 5 : Tests Unitaires (Jest) & Intégration (Supertest)
+      # Justification : Valide la Capacité fonctionnelle et la reproductibilité (Fiabilité).
+      - name: 2, 3, 4, 5. Install, Linting, Tests Backend
         run: |
           cd backend/api-service
-          npm ci
-          npm run lint
-          npm test -- --coverage --watchAll=false
+          npm ci                           
+          npm run lint                     
+          npm test -- --coverage --watchAll=false 
         env:
           JWT_SECRET: "test_secret_pour_ci"
 
-      # --- ÉTAPES 4 & 5 : VALIDATION FRONTEND ---
-      # On ajoute --passWithNoTests car tu n'as pas encore de fichiers .test.js dans le front
-      - name: Frontend (Install, Tests)
+      - name: Export Backend Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/api-service/coverage/lcov.info
+
+  # ==========================================================
+  # JOB FRONTEND : Validation de l'interface utilisateur
+  # ==========================================================
+  frontend-validation:
+    name: Validation Frontend
+    runs-on: ubuntu-latest
+    steps:
+      # ÉTAPE 1 : Checkout (Traçabilité)
+      - name: 1. Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ÉTAPE 2 : Install (Fiabilité)
+      # ÉTAPE 4 : Tests Unitaires - Jest (Capacité fonctionnelle)
+      - name: 2, 4. Install & Tests Frontend
         run: |
           cd frontend
           npm install
           npm test -- --coverage --watchAll=false --passWithNoTests
 
-      # --- ÉTAPE 6 : ANALYSE QUALITÉ GLOBALE (SONARCLOUD) ---
-      # Centralise les indicateurs : Dette, Duplication, et enfin le Coverage !
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Utilise ton token : 1cf93e7...
+      - name: Export Frontend Coverage
+        uses: actions/upload-artifact@v4
         with:
-          projectBaseDir: .
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
 
   # ==========================================================
-  # PHASE 2 : CONSTRUCTION ET SÉCURITÉ DES LIVRABLES (DOCKER)
+  # JOB QUALITÉ & LIVRAISON : Scan et Conteneurisation
   # ==========================================================
-  build-and-security-scan:
-    needs: [validation] # Orchestration : On ne build que si le code est qualitatif
+  quality-and-delivery:
+    name: Qualité, Build & Sécurité
+    needs: [backend-validation, frontend-validation] # Orchestration : On ne build que si le code est qualitatif
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,24 +84,42 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # --- ÉTAPE 7 : CONSTRUCTION DE L'IMAGE ---
-      - name: Build Backend Image
+      - name: Download Coverage Reports
+        uses: actions/download-artifact@v4
+
+      # ÉTAPE 6 : Qualité & Scan - SonarCloud
+      # Justification : Centralise les 4 indicateurs qualité demandés (Dette, Fiabilité, Sécurité, Couverture).
+      - name: 6. SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+
+      # ÉTAPE 7 : Build Image - Docker
+      # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
+      - name: 7. Build Backend Image
         run: |
           IMAGE_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
           docker build -t $IMAGE_ID ./backend/api-service
           echo "FINAL_IMAGE=$IMAGE_ID" >> $GITHUB_ENV
 
-      # --- ÉTAPE 8 : SCAN DE VULNÉRABILITÉS (TRIVY) ---
-      - name: Scan Image with Trivy
+      # ÉTAPE 8 : Scan d'image - Trivy
+      # Justification : Répond à la consigne de "Scan de vulnérabilités" du conteneur.
+      - name: 8. Scan Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FINAL_IMAGE }}
           format: 'table'
           severity: 'CRITICAL,HIGH'
 
-      # --- ÉTAPE 9 : PUBLICATION (GHCR) ---
-      - name: Login & Push to Registry
+      # ÉTAPE 9 : Push Registry - GHCR.io
+      # Justification : Rend l'image disponible pour le déploiement (Disponibilité).
+      - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker push ${{ env.FINAL_IMAGE }}
