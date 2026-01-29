@@ -34,12 +34,12 @@ jobs:
           JWT_SECRET: "test_secret_pour_ci"
 
       # --- ÉTAPES 4 & 5 : VALIDATION FRONTEND ---
-      # Crucial pour ne plus avoir une "mauvaise" analyse globale
+      # On ajoute --passWithNoTests car tu n'as pas encore de fichiers .test.js dans le front
       - name: Frontend (Install, Tests)
         run: |
           cd frontend
           npm install
-          npm test -- --coverage --watchAll=false
+          npm test -- --coverage --watchAll=false --passWithNoTests
 
       # --- ÉTAPE 6 : ANALYSE QUALITÉ GLOBALE (SONARCLOUD) ---
       # Centralise les indicateurs : Dette, Duplication, et enfin le Coverage !
@@ -47,7 +47,7 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Utilise ton nouveau token
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Utilise ton token : 1cf93e7...
         with:
           projectBaseDir: .
 
