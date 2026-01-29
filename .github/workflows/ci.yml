@@ -1,12 +1,67 @@
-# .github/workflows/ci.yml (compléter)
-# - Tests automatiques
-# - Linting (ESLint)
-# - Build Docker
-# - Scan sécurité (npm audit, Trivy)
+name: CI Petite Maison DevSecOps
 
-# .github/workflows/security-scan.yml (à créer)
-# - OWASP ZAP
-# - Snyk
+# Déclenchement automatique à chaque push sur la branche main
+on:
+  push:
+    branches: [ main ]
 
-# .github/workflows/deploy.yml (optionnel)
-# - Déploiement auto sur push main
+jobs:
+  # PHASE 1 : VALIDATION DU CODE (Qualité & Fiabilité)
+  backend-validation:
+    runs-on: ubuntu-latest
+    steps:
+      # Étape 1 : Récupération du code source (Traçabilité)
+      - uses: actions/checkout@v4 
+
+      # Installation de l'environnement Node.js standardisé [cite: 68]
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Étape 2 : Installation propre des dépendances (ISO 25010: Fiabilité)
+      - name: Install & Test Backend
+        run: |
+          cd backend/api-service
+          npm ci 
+          
+          # Étape 3 : Analyse statique avec ESLint (ISO 25010: Maintenabilité)
+          npm run lint 
+          
+          # Étape 4 & 5 : Tests automatisés Jest/Supertest (Capacité fonctionnelle) [cite: 88]
+          npm test 
+        env:
+          [cite_start]JWT_SECRET: "test_secret_pour_ci" # Sécurité minimale pour l'exécution des tests [cite: 24]
+
+  # PHASE 2 : CONSTRUCTION ET SÉCURITÉ DES CONTENEURS (DevSecOps)
+  build-and-security-scan:
+    [cite_start]needs: [backend-validation] # Orchestration : on ne build que si les tests passent 
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Autorisation pour publier sur le GitHub Container Registry
+    steps:
+      - uses: actions/checkout@v4
+
+      # Étape 7 : Construction de l'image Docker (ISO 25010: Portabilité)
+      - name: Build Backend Image
+        run: docker build -t ghcr.io/${{ github.repository }}/backend:latest ./backend/api-service
+
+      # Étape 8 : Scan de vulnérabilités Trivy (Détection des failles de sécurité) [cite: 24, 86]
+      - name: Scan Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'ghcr.io/${{ github.repository }}/backend:latest'
+          format: 'table'
+          [cite_start]severity: 'CRITICAL,HIGH' # On cible les failles prioritaires pour le plan de remédiation [cite: 97]
+
+      # Étape 9 : Publication sur le Registry GHCR (Gestion du déploiement) [cite: 23]
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Image
+        run: docker push ghcr.io/${{ github.repository }}/backend:latest
