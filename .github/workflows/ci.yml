@@ -61,6 +61,8 @@ jobs:
           DB_PASSWORD: password
           DB_NAME: petite_maison_db
           JWT_SECRET: "test_secret_pour_ci"
+          # ✅ CORRECTION : Ajout du secret pour les Refresh Tokens
+          JWT_REFRESH_SECRET: "refresh_test_secret_pour_ci"
 
       - name: Export Backend Coverage
         uses: actions/upload-artifact@v4
@@ -89,6 +91,7 @@ jobs:
           npm install
           npm test -- --coverage --watchAll=false --passWithNoTests
 
+      # Exportation du rapport de couverture frontend
       - name: Export Frontend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +118,7 @@ jobs:
         uses: actions/download-artifact@v4
 
       # ÉTAPE 6 : Qualité & Scan - SonarCloud
+      # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -126,6 +130,7 @@ jobs:
             -Dsonar.javascript.lcov.reportPaths=backend-coverage/lcov.info,frontend-coverage/lcov.info
 
       # ÉTAPE 7 : Build Images - Docker
+      # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
       - name: 7. Build Backend & Frontend Images
         run: |
           BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
@@ -137,12 +142,14 @@ jobs:
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
       # ÉTAPE 8 : Scan d'images - Trivy (Vérification de la Sécurité)
+      # Justification : Répond à la consigne de "Scan de vulnérabilités".
       - name: 8. Scan Images with Trivy
         run: |
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
       # ÉTAPE 9 : Push Registry - GHCR.io
+      # Justification : Rend les livrables disponibles pour le déploiement (Disponibilité).
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
