@@ -7,6 +7,7 @@ on:
 jobs:
   # ==========================================================
   # JOB BACKEND : Validation de la logique API
+  # Technologies : Node.js, ESLint, Jest, Supertest
   # ==========================================================
   backend-validation:
     name: Validation Backend
@@ -22,10 +23,10 @@ jobs:
         with:
           node-version: '20'
 
-      # ÉTAPE 2 : Install - npm install
-      # ÉTAPE 3 : Linting - ESLint (Vérifie la Maintenabilité)
+      # ÉTAPE 2 : Install - npm ci (reproductibilité)
+      # ÉTAPE 3 : Linting - ESLint (Maintenabilité)
       # ÉTAPE 4 & 5 : Tests Unitaires (Jest) & Intégration (Supertest)
-      # Justification : Valide la Capacité fonctionnelle et la reproductibilité (Fiabilité).
+      # Justification : Valide la Capacité fonctionnelle (Tests Backend).
       - name: 2, 3, 4, 5. Install, Linting, Tests Backend
         run: |
           cd backend/api-service
@@ -35,6 +36,7 @@ jobs:
         env:
           JWT_SECRET: "test_secret_pour_ci"
 
+      # Exportation du rapport de couverture pour l'analyse Sonar globale
       - name: Export Backend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -43,6 +45,7 @@ jobs:
 
   # ==========================================================
   # JOB FRONTEND : Validation de l'interface utilisateur
+  # Technologies : Node.js, Jest
   # ==========================================================
   frontend-validation:
     name: Validation Frontend
@@ -58,13 +61,14 @@ jobs:
           node-version: '20'
 
       # ÉTAPE 2 : Install (Fiabilité)
-      # ÉTAPE 4 : Tests Unitaires - Jest (Capacité fonctionnelle)
+      # ÉTAPE 4 : Tests Unitaires - Jest (Capacité fonctionnelle Front)
       - name: 2, 4. Install & Tests Frontend
         run: |
           cd frontend
           npm install
           npm test -- --coverage --watchAll=false --passWithNoTests
 
+      # Exportation du rapport de couverture frontend
       - name: Export Frontend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -72,11 +76,12 @@ jobs:
           path: frontend/coverage/lcov.info
 
   # ==========================================================
-  # JOB QUALITÉ & LIVRAISON : Scan et Conteneurisation
+  # JOB QUALITÉ & LIVRAISON : Scan et Conteneurisation (Fullstack)
   # ==========================================================
   quality-and-delivery:
     name: Qualité, Build & Sécurité
-    needs: [backend-validation, frontend-validation] # Orchestration : On ne build que si le code est qualitatif
+    # Orchestration : On ne build que si le Back ET le Front sont qualitatifs
+    needs: [backend-validation, frontend-validation] 
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -85,13 +90,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Pour la dette technique Sonar
 
-      - name: Download Coverage Reports
+      # Récupération des rapports de couverture des deux mondes
+      - name: Download All Coverage Reports
         uses: actions/download-artifact@v4
 
-      # ÉTAPE 6 : Qualité & Scan - SonarCloud
-      # Justification : Centralise les 4 indicateurs qualité demandés (Dette, Fiabilité, Sécurité, Couverture).
+      # ÉTAPE 6 : Qualité & Scan - SonarCloud (Analyse Fullstack)
+      # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -99,27 +105,36 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           projectBaseDir: .
+          args: >
+            -Dsonar.javascript.lcov.reportPaths=backend-coverage/lcov.info,frontend-coverage/lcov.info
 
-      # ÉTAPE 7 : Build Image - Docker
+      # ÉTAPE 7 : Build Images - Docker (Backend & Frontend)
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
-      - name: 7. Build Backend Image
+      - name: 7. Build Backend & Frontend Images
         run: |
-          IMAGE_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
-          docker build -t $IMAGE_ID ./backend/api-service
-          echo "FINAL_IMAGE=$IMAGE_ID" >> $GITHUB_ENV
+          # Image Backend
+          BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
+          docker build -t $BACK_ID ./backend/api-service
+          echo "BACK_IMAGE=$BACK_ID" >> $GITHUB_ENV
+          
+          # Image Frontend
+          FRONT_ID=$(echo "ghcr.io/${{ github.repository }}/frontend:latest" | tr '[:upper:]' '[:lower:]')
+          docker build -t $FRONT_ID ./frontend
+          echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
-      # ÉTAPE 8 : Scan d'image - Trivy
-      # Justification : Répond à la consigne de "Scan de vulnérabilités" du conteneur.
-      - name: 8. Scan Image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.FINAL_IMAGE }}
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
+      # ÉTAPE 8 : Scan d'images - Trivy (Sécurité des Conteneurs)
+      # Justification : Répond à la consigne de "Scan de vulnérabilités".
+      - name: 8. Scan Images with Trivy
+        run: |
+          # Scan Backend
+          docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
+          # Scan Frontend
+          docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
       # ÉTAPE 9 : Push Registry - GHCR.io
-      # Justification : Rend l'image disponible pour le déploiement (Disponibilité).
+      # Justification : Rend les livrables disponibles pour le déploiement (Disponibilité).
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker push ${{ env.FINAL_IMAGE }}
+          docker push ${{ env.BACK_IMAGE }}
+          docker push ${{ env.FRONT_IMAGE }}
