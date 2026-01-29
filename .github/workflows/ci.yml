@@ -1,75 +1,92 @@
 name: CI Petite Maison DevSecOps
 
-# Déclenchement automatique du pipeline à chaque push sur la branche main
 on:
   push:
     branches: [ main ]
 
 jobs:
-  # PHASE 1 : VALIDATION DU CODE (Qualité & Fiabilité)
-  # On vérifie que le code est propre et fonctionnel avant d'en faire quoi que ce soit
+  # ==========================================================
+  # PHASE 1 : VALIDATION DU CODE (Qualité, Tests & Sécurité Code)
+  # ==========================================================
   backend-validation:
     runs-on: ubuntu-latest
     steps:
-      # Étape 1 : Récupération du code source depuis GitHub (Traçabilité)
-      - uses: actions/checkout@v4 
+      # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Historique complet pour l'analyse de dette Sonar
 
-      # Installation d'un environnement Node.js stable pour éviter les dérives de version
+      # --- CONFIGURATION DE L'ENVIRONNEMENT ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Étape 2 : Installation propre des dépendances avec le package-lock.json (Fiabilité)
-      - name: Install & Test Backend
+      # --- ÉTAPE 2 : INSTALLATION DES DÉPENDANCES ---
+      - name: Install Dependencies
         run: |
           cd backend/api-service
-          npm ci 
-          
-          # Étape 3 : Analyse statique avec ESLint (ISO 25010: Maintenabilité & Dette technique)
-          npm run lint 
-          
-          # Étape 4 & 5 : Exécution des tests automatisés (Fiabilité & Capacité fonctionnelle)
-          npm test 
-        env:
-          JWT_SECRET: "test_secret_pour_ci" # Injection d'un secret fictif pour passer les tests
+          npm ci
 
-  # PHASE 2 : CONSTRUCTION ET SÉCURITÉ DES CONTENEURS (DevSecOps)
-  # Cette phase ne démarre que si la validation du code est 100% OK
+      # --- ÉTAPE 3 : ANALYSE STATIQUE (LINTING) ---
+      - name: Code Quality Lint
+        run: |
+          cd backend/api-service
+          npm run lint
+
+      # --- ÉTAPES 4 & 5 : TESTS UNITAIRES & INTÉGRATION ---
+      - name: Run Tests & Generate Coverage
+        run: |
+          cd backend/api-service
+          npm test -- --coverage --watchAll=false
+        env:
+          JWT_SECRET: "test_secret_pour_ci"
+
+      # --- ÉTAPE 6 : ANALYSE QUALITÉ GLOBALE (SONARCLOUD) ---
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+
+  # ==========================================================
+  # PHASE 2 : CONTENEURISATION & SÉCURITÉ DES LIVRABLES
+  # ==========================================================
   build-and-security-scan:
-    needs: [backend-validation] # Orchestration : bloque la livraison si le code est invalide
+    needs: [backend-validation] # On ne build que si la Phase 1 est 100% OK
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Autorisation pour publier sur le registre d'images GitHub
+      packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      # Étape 7 : Construction de l'image Docker (ISO 25010: Portabilité)
-      # On adapte le nom de l'image en minuscules pour respecter les standards Docker
-      - name: Build Backend Image
+      # --- ÉTAPE 7 : CONSTRUCTION DE L'IMAGE DOCKER ---
+      - name: Build Docker Image
         run: |
           IMAGE_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
           docker build -t $IMAGE_ID ./backend/api-service
           echo "FINAL_IMAGE=$IMAGE_ID" >> $GITHUB_ENV
 
-      # Étape 8 : Analyse de sécurité Trivy (Scan de vulnérabilités proactif)
-      # On détecte les failles dans l'image avant qu'elle ne soit disponible en production
-      - name: Scan Image with Trivy
+      # --- ÉTAPE 8 : SCAN DE SÉCURITÉ DE L'IMAGE (TRIVY) ---
+      - name: Security Scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FINAL_IMAGE }}
           format: 'table'
-          severity: 'CRITICAL,HIGH' # Fokus sur les vulnérabilités majeures pour le plan de remédiation
+          severity: 'CRITICAL,HIGH'
 
-      # Étape 9 : Publication sur le Registry GHCR (Livraison Continue)
-      # Une fois validée par Trivy, l'image est stockée et prête pour Kubernetes
-      - name: Login to GHCR
+      # --- ÉTAPE 9 : PUBLICATION SUR LE REGISTRY (GHCR) ---
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push Image
+      - name: Push Image to Registry
         run: docker push ${{ env.FINAL_IMAGE }}
