@@ -43,7 +43,6 @@ app.use('/uploads', express.static(uploadsDir));
 // ✅ CONFIGURATION CORS DYNAMIQUE (DÉCOUPLAGE)
 // ============================================================================
 // On autorise l'URL du frontend définie via les variables d'environnement du cluster.
-// Cela permet de changer de port ou de domaine sans modifier le code source.
 const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
 
 app.use(cors({ 
@@ -67,7 +66,7 @@ const authRoutes = require('./auth/auth.routes');
 const annoncesRoutes = require('./annonces/annonces.routes');
 const adminRoutes = require('./admin/admin.routes');
 
-app.use('/api/auth', authRoutes);     // Gestion identités (Register/Login/Refresh)
+app.use('/api/auth', authRoutes);         // Gestion identités (Register/Login/Refresh)
 app.use('/api/annonces', annoncesRoutes); // Gestion catalogue (Public & Privé)
 app.use('/api/admin', adminRoutes);       // Modération (Accès restreint aux admins)
 
@@ -82,8 +81,15 @@ app.get('/', (req, res) => {
 // Priorité au port injecté par l'orchestrateur (Kubernetes Service)
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur backend démarré sur le port : ${PORT}`);
-  console.log(`🗄️  Base de données ciblée : ${process.env.DB_HOST || 'localhost'}`);
-  console.log(`📊 Système d'observabilité activé`);
-});
+// ✅ CORRECTION CI : On n'écoute sur le port que si on n'est pas en mode TEST
+// Cela évite l'erreur "app.address is not a function" dans Jest/Supertest
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Serveur backend démarré sur le port : ${PORT}`);
+    console.log(`🗄️  Base de données ciblée : ${process.env.DB_HOST || 'localhost'}`);
+    console.log(`📊 Système d'observabilité activé`);
+  });
+}
+
+// ✅ EXPORT : Indispensable pour que Supertest puisse charger l'application sans la lancer
+module.exports = app;

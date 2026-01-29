@@ -7,11 +7,28 @@ on:
 jobs:
   # ==========================================================
   # JOB BACKEND : Validation de la logique API
-  # Technologies : Node.js, ESLint, Jest, Supertest
+  # Technologies : Node.js, ESLint, Jest, Supertest, PostgreSQL
   # ==========================================================
   backend-validation:
     name: Validation Backend
     runs-on: ubuntu-latest
+    # --- AJOUT : Infrastructure de base de données pour les tests d'intégration ---
+    # Justification : Permet de valider la Capacité fonctionnelle sur une base réelle.
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: petite_maison_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # ÉTAPE 1 : Checkout - GitHub Actions
       # Justification : Point de départ de la traçabilité du développement.
@@ -23,10 +40,8 @@ jobs:
         with:
           node-version: '20'
 
-      # ÉTAPE 2 : Install - npm ci (reproductibilité)
-      # ÉTAPE 3 : Linting - ESLint (Maintenabilité)
-      # ÉTAPE 4 & 5 : Tests Unitaires (Jest) & Intégration (Supertest)
-      # Justification : Valide la Capacité fonctionnelle (Tests Backend).
+      # ÉTAPE 2, 3, 4, 5 : Install, Linting, Tests (Jest/Supertest)
+      # Justification : Valide la Capacité fonctionnelle et la sécurité des routes API.
       - name: 2, 3, 4, 5. Install, Linting, Tests Backend
         run: |
           cd backend/api-service
@@ -34,6 +49,12 @@ jobs:
           npm run lint                     
           npm test -- --coverage --watchAll=false 
         env:
+          # Configuration pour que le backend trouve la base temporaire de la CI
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_USER: user
+          DB_PASSWORD: password
+          DB_NAME: petite_maison_db
           JWT_SECRET: "test_secret_pour_ci"
 
       # Exportation du rapport de couverture pour l'analyse Sonar globale
