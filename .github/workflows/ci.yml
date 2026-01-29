@@ -12,8 +12,7 @@ jobs:
   backend-validation:
     name: Validation Backend
     runs-on: ubuntu-latest
-    # --- AJOUT : Infrastructure de base de données pour les tests d'intégration ---
-    # Justification : Permet de valider la Capacité fonctionnelle sur une base réelle.
+    # --- Infrastructure de base de données temporaire ---
     services:
       postgres:
         image: postgres:latest
@@ -28,7 +27,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          -v ${{ github.workspace }}/backend/api-service/init.sql:/docker-entrypoint-initdb.d/init.sql
 
     steps:
       # ÉTAPE 1 : Checkout - GitHub Actions
@@ -41,6 +39,13 @@ jobs:
         with:
           node-version: '20'
 
+      # ÉTAPE 5.1 : Initialisation du Schéma SQL
+      # Justification : Résout l'erreur "relation users does not exist" en créant les tables
+      # juste avant les tests. Utilise le client psql natif d'Ubuntu.
+      - name: 5.1 Initialize Database Schema
+        run: |
+          PGPASSWORD=password psql -h localhost -U user -d petite_maison_db -f backend/api-service/init.sql
+
       # ÉTAPE 2, 3, 4, 5 : Install, Linting, Tests (Jest/Supertest)
       # Justification : Valide la Capacité fonctionnelle et la sécurité des routes API.
       - name: 2, 3, 4, 5. Install, Linting, Tests Backend
@@ -50,7 +55,6 @@ jobs:
           npm run lint                     
           npm test -- --coverage --watchAll=false 
         env:
-          # Configuration pour que le backend trouve la base temporaire de la CI
           NODE_ENV: test
           DB_HOST: localhost
           DB_USER: user
@@ -58,7 +62,6 @@ jobs:
           DB_NAME: petite_maison_db
           JWT_SECRET: "test_secret_pour_ci"
 
-      # Exportation du rapport de couverture pour l'analyse Sonar globale
       - name: Export Backend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -67,13 +70,11 @@ jobs:
 
   # ==========================================================
   # JOB FRONTEND : Validation de l'interface utilisateur
-  # Technologies : Node.js, Jest
   # ==========================================================
   frontend-validation:
     name: Validation Frontend
     runs-on: ubuntu-latest
     steps:
-      # ÉTAPE 1 : Checkout (Traçabilité)
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
@@ -82,15 +83,12 @@ jobs:
         with:
           node-version: '20'
 
-      # ÉTAPE 2 : Install (Fiabilité)
-      # ÉTAPE 4 : Tests Unitaires - Jest (Capacité fonctionnelle Front)
       - name: 2, 4. Install & Tests Frontend
         run: |
           cd frontend
           npm install
           npm test -- --coverage --watchAll=false --passWithNoTests
 
-      # Exportation du rapport de couverture frontend
       - name: Export Frontend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -102,7 +100,6 @@ jobs:
   # ==========================================================
   quality-and-delivery:
     name: Qualité, Build & Sécurité
-    # Orchestration : On ne build que si le Back ET le Front sont qualitatifs
     needs: [backend-validation, frontend-validation] 
     runs-on: ubuntu-latest
     permissions:
@@ -112,14 +109,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Pour la dette technique Sonar
+          fetch-depth: 0 
 
-      # Récupération des rapports de couverture des deux mondes
       - name: Download All Coverage Reports
         uses: actions/download-artifact@v4
 
-      # ÉTAPE 6 : Qualité & Scan - SonarCloud (Analyse Fullstack)
-      # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
+      # ÉTAPE 6 : Qualité & Scan - SonarCloud
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -130,31 +125,24 @@ jobs:
           args: >
             -Dsonar.javascript.lcov.reportPaths=backend-coverage/lcov.info,frontend-coverage/lcov.info
 
-      # ÉTAPE 7 : Build Images - Docker (Backend & Frontend)
-      # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
+      # ÉTAPE 7 : Build Images - Docker
       - name: 7. Build Backend & Frontend Images
         run: |
-          # Image Backend
           BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
           docker build -t $BACK_ID ./backend/api-service
           echo "BACK_IMAGE=$BACK_ID" >> $GITHUB_ENV
           
-          # Image Frontend
           FRONT_ID=$(echo "ghcr.io/${{ github.repository }}/frontend:latest" | tr '[:upper:]' '[:lower:]')
           docker build -t $FRONT_ID ./frontend
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
-      # ÉTAPE 8 : Scan d'images - Trivy (Sécurité des Conteneurs)
-      # Justification : Répond à la consigne de "Scan de vulnérabilités".
+      # ÉTAPE 8 : Scan d'images - Trivy (Vérification de la Sécurité)
       - name: 8. Scan Images with Trivy
         run: |
-          # Scan Backend
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
-          # Scan Frontend
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
       # ÉTAPE 9 : Push Registry - GHCR.io
-      # Justification : Rend les livrables disponibles pour le déploiement (Disponibilité).
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
