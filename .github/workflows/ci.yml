@@ -6,57 +6,56 @@ on:
 
 jobs:
   # ==========================================================
-  # PHASE 1 : VALIDATION DU CODE (Qualité, Tests & Sécurité Code)
+  # PHASE 1 : VALIDATION DU CODE (Qualité, Tests & Sécurité)
   # ==========================================================
-  backend-validation:
+  validation:
     runs-on: ubuntu-latest
     steps:
       # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Historique complet pour l'analyse de dette Sonar
+          fetch-depth: 0 # Nécessaire pour l'analyse de dette technique Sonar
 
-      # --- CONFIGURATION DE L'ENVIRONNEMENT ---
+      # --- CONFIGURATION ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # --- ÉTAPE 2 : INSTALLATION DES DÉPENDANCES ---
-      - name: Install Dependencies
+      # --- ÉTAPES 2 & 3 : VALIDATION BACKEND ---
+      - name: Backend (Install, Lint, Tests)
         run: |
           cd backend/api-service
           npm ci
-
-      # --- ÉTAPE 3 : ANALYSE STATIQUE (LINTING) ---
-      - name: Code Quality Lint
-        run: |
-          cd backend/api-service
           npm run lint
-
-      # --- ÉTAPES 4 & 5 : TESTS UNITAIRES & INTÉGRATION ---
-      - name: Run Tests & Generate Coverage
-        run: |
-          cd backend/api-service
           npm test -- --coverage --watchAll=false
         env:
           JWT_SECRET: "test_secret_pour_ci"
 
+      # --- ÉTAPES 4 & 5 : VALIDATION FRONTEND ---
+      # Crucial pour ne plus avoir une "mauvaise" analyse globale
+      - name: Frontend (Install, Tests)
+        run: |
+          cd frontend
+          npm install
+          npm test -- --coverage --watchAll=false
+
       # --- ÉTAPE 6 : ANALYSE QUALITÉ GLOBALE (SONARCLOUD) ---
+      # Centralise les indicateurs : Dette, Duplication, et enfin le Coverage !
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} # Utilise ton nouveau token
         with:
           projectBaseDir: .
 
   # ==========================================================
-  # PHASE 2 : CONTENEURISATION & SÉCURITÉ DES LIVRABLES
+  # PHASE 2 : CONSTRUCTION ET SÉCURITÉ DES LIVRABLES (DOCKER)
   # ==========================================================
   build-and-security-scan:
-    needs: [backend-validation] # On ne build que si la Phase 1 est 100% OK
+    needs: [validation] # Orchestration : On ne build que si le code est qualitatif
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,28 +64,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 7 : CONSTRUCTION DE L'IMAGE DOCKER ---
-      - name: Build Docker Image
+      # --- ÉTAPE 7 : CONSTRUCTION DE L'IMAGE ---
+      - name: Build Backend Image
         run: |
           IMAGE_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
           docker build -t $IMAGE_ID ./backend/api-service
           echo "FINAL_IMAGE=$IMAGE_ID" >> $GITHUB_ENV
 
-      # --- ÉTAPE 8 : SCAN DE SÉCURITÉ DE L'IMAGE (TRIVY) ---
-      - name: Security Scan with Trivy
+      # --- ÉTAPE 8 : SCAN DE VULNÉRABILITÉS (TRIVY) ---
+      - name: Scan Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FINAL_IMAGE }}
           format: 'table'
           severity: 'CRITICAL,HIGH'
 
-      # --- ÉTAPE 9 : PUBLICATION SUR LE REGISTRY (GHCR) ---
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push Image to Registry
-        run: docker push ${{ env.FINAL_IMAGE }}
+      # --- ÉTAPE 9 : PUBLICATION (GHCR) ---
+      - name: Login & Push to Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push ${{ env.FINAL_IMAGE }}
