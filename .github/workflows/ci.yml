@@ -1,61 +1,69 @@
 name: CI Petite Maison DevSecOps
 
-# Déclenchement automatique à chaque push sur la branche main
+# Déclenchement automatique du pipeline à chaque push sur la branche main
 on:
   push:
     branches: [ main ]
 
 jobs:
   # PHASE 1 : VALIDATION DU CODE (Qualité & Fiabilité)
+  # On vérifie que le code est propre et fonctionnel avant d'en faire quoi que ce soit
   backend-validation:
     runs-on: ubuntu-latest
     steps:
-      # Étape 1 : Récupération du code source (Traçabilité)
+      # Étape 1 : Récupération du code source depuis GitHub (Traçabilité)
       - uses: actions/checkout@v4 
 
-      # Installation de l'environnement Node.js standardisé
+      # Installation d'un environnement Node.js stable pour éviter les dérives de version
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Étape 2 : Installation propre des dépendances (ISO 25010: Fiabilité)
+      # Étape 2 : Installation propre des dépendances avec le package-lock.json (Fiabilité)
       - name: Install & Test Backend
         run: |
           cd backend/api-service
           npm ci 
           
-          # Étape 3 : Analyse statique avec ESLint (ISO 25010: Maintenabilité)
+          # Étape 3 : Analyse statique avec ESLint (ISO 25010: Maintenabilité & Dette technique)
           npm run lint 
           
-          # Étape 4 & 5 : Tests automatisés Jest/Supertest (Capacité fonctionnelle)
+          # Étape 4 & 5 : Exécution des tests automatisés (Fiabilité & Capacité fonctionnelle)
           npm test 
         env:
-          JWT_SECRET: "test_secret_pour_ci" # Sécurité minimale pour les tests
+          JWT_SECRET: "test_secret_pour_ci" # Injection d'un secret fictif pour passer les tests
 
   # PHASE 2 : CONSTRUCTION ET SÉCURITÉ DES CONTENEURS (DevSecOps)
+  # Cette phase ne démarre que si la validation du code est 100% OK
   build-and-security-scan:
-    needs: [backend-validation] # Orchestration : on ne build que si les tests passent 
+    needs: [backend-validation] # Orchestration : bloque la livraison si le code est invalide
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Autorisation pour publier sur le GitHub Container Registry
+      packages: write # Autorisation pour publier sur le registre d'images GitHub
     steps:
       - uses: actions/checkout@v4
 
       # Étape 7 : Construction de l'image Docker (ISO 25010: Portabilité)
+      # On adapte le nom de l'image en minuscules pour respecter les standards Docker
       - name: Build Backend Image
-        run: docker build -t ghcr.io/${{ github.repository }}/backend:latest ./backend/api-service
+        run: |
+          IMAGE_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_ID ./backend/api-service
+          echo "FINAL_IMAGE=$IMAGE_ID" >> $GITHUB_ENV
 
-      # Étape 8 : Scan de vulnérabilités Trivy (Détection des failles de sécurité)
+      # Étape 8 : Analyse de sécurité Trivy (Scan de vulnérabilités proactif)
+      # On détecte les failles dans l'image avant qu'elle ne soit disponible en production
       - name: Scan Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/${{ github.repository }}/backend:latest'
+          image-ref: ${{ env.FINAL_IMAGE }}
           format: 'table'
-          severity: 'CRITICAL,HIGH' # On cible les failles prioritaires
+          severity: 'CRITICAL,HIGH' # Fokus sur les vulnérabilités majeures pour le plan de remédiation
 
-      # Étape 9 : Publication sur le Registry GHCR (Gestion du déploiement)
+      # Étape 9 : Publication sur le Registry GHCR (Livraison Continue)
+      # Une fois validée par Trivy, l'image est stockée et prête pour Kubernetes
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -64,4 +72,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Image
-        run: docker push ghcr.io/${{ github.repository }}/backend:latest
+        run: docker push ${{ env.FINAL_IMAGE }}
