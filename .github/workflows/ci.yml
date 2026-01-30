@@ -61,7 +61,6 @@ jobs:
           DB_PASSWORD: password
           DB_NAME: petite_maison_db
           JWT_SECRET: "test_secret_pour_ci"
-          # ✅ CORRECTION : Ajout du secret pour les Refresh Tokens
           JWT_REFRESH_SECRET: "refresh_test_secret_pour_ci"
 
       - name: Export Backend Coverage
@@ -114,11 +113,22 @@ jobs:
         with:
           fetch-depth: 0 
 
-      - name: Download All Coverage Reports
+      # Téléchargement explicite pour éviter les erreurs de chemins dans Sonar
+      - name: Download Backend Coverage
         uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend-reports
+
+      - name: Download Frontend Coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend-reports
 
       # ÉTAPE 6 : Qualité & Scan - SonarCloud
       # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
+      # On utilise les nouveaux chemins des rapports téléchargés ci-dessus.
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -127,7 +137,7 @@ jobs:
         with:
           projectBaseDir: .
           args: >
-            -Dsonar.javascript.lcov.reportPaths=backend-coverage/lcov.info,frontend-coverage/lcov.info
+            -Dsonar.javascript.lcov.reportPaths=backend-reports/lcov.info,frontend-reports/lcov.info
 
       # ÉTAPE 7 : Build Images - Docker
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
