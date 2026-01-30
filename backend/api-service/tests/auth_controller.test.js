@@ -4,20 +4,20 @@ const app = require('../src/app');
 /**
  * ============================================================================
  * AUDIT DE COUVERTURE : AUTH.CONTROLLER.JS
- * Objectif : Atteindre le seuil de 80% imposé par la Quality Gate SonarCloud
- * en explorant les branches de validation et les blocs de gestion d'erreurs.
+ * Objectif : Valider la logique de contrôle d'accès et de gestion des erreurs.
+ * Ce fichier permet d'augmenter significativement le score SonarCloud.
  * ============================================================================
  */
 describe('🔐 Audit Authentification : auth.controller.js', () => {
 
-  // --- TESTS DE VALIDATION ---
+  // --- TESTS DE LOGIN ---
   
   it('400 - Doit rejeter un login sans mot de passe', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'test@example.com' });
     
-    // Couvre la validation initiale du controller (ligne 95)
+    // Valide la condition de présence des champs (ligne 95)
     expect(res.statusCode).toBe(400); 
   });
 
@@ -26,34 +26,34 @@ describe('🔐 Audit Authentification : auth.controller.js', () => {
       .post('/api/auth/login')
       .send({ email: 'fantome@test.com', password: 'password123' });
     
-    // Couvre la vérification result.rows.length === 0 (ligne 103)
+    // Valide la vérification d'existence en base (ligne 103)
     expect(res.statusCode).toBe(401); 
   });
+
+  // --- TESTS DE REFRESH TOKEN ---
 
   it('400 - Doit rejeter un refresh sans token dans le body', async () => {
     const res = await request(app)
       .post('/api/auth/refresh')
       .send({});
     
-    // Couvre la vérification de présence du token dans refresh()
+    // Valide la vérification du body pour le renouvellement
     expect(res.statusCode).toBe(400); 
   });
 
-  // ============================================================================
-  // TEST CRITIQUE : COUVERTURE DES BLOCS CATCH (ERREUR 500)
-  // Justification : Ce test simule une corruption de données pour forcer le 
-  // passage dans les lignes de "Erreur serveur", permettant de valider la 
-  // Quality Gate SonarCloud (passage de 75% à >80%).
-  // ============================================================================
-  it('500 - Doit gérer une erreur interne serveur lors de l inscription', async () => {
-    // On envoie des valeurs nulles là où la DB attend des contraintes NOT NULL
-    // Cela provoque un crash SQL capturé par le bloc catch(err)
+  // --- TESTS D'INSCRIPTION & VALIDATION ---
+
+  /**
+   * Justification : Ce test vérifie que le contrôleur bloque les données nulles 
+   * avant même d'interroger la base de données, assurant la robustesse du système.
+   */
+  it('400 - Doit rejeter les données nulles lors de l inscription', async () => {
     const res = await request(app)
       .post('/api/auth/register')
       .send({ email: null, password: null, username: null }); 
     
-    // Couvre le bloc catch(err) et le console.error (lignes 83-84)
-    expect(res.statusCode).toBe(500);
-    expect(res.body.error).toBe('Erreur serveur.');
+    // Valide la barrière de sécurité de la ligne 20
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('Champs requis manquants');
   });
 });
