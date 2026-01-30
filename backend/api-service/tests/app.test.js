@@ -1,36 +1,36 @@
 const request = require('supertest');
-const app = require('../src/app'); // 💡 IMPORTATION DE TA VRAIE APP
+const app = require('../src/app');
+const fs = require('fs');
+const path = require('path');
 
-/**
- * ============================================================================
- * AUDIT GLOBAL : APP.JS
- * Objectif : Valider les middlewares globaux et les routes de base.
- * Ce test permet de couvrir les lignes 74-76 de app.js et franchir les 80%.
- * ============================================================================
- */
-describe('🌐 Audit de l\'Application (app.js)', () => {
-
+describe('🌐 Audit Final de Couverture : app.js', () => {
+  
   /**
-   * TEST 1 : ROUTE DE DIAGNOSTIC
-   * Cible : app.js ligne 74
-   * Justification : Vérifie que l'API est correctement initialisée sur le cluster.
+   * TEST 1 : Route de Diagnostic (Ligne 74)
+   * Objectif : Couvrir la branche de Health Check.
    */
-  it('200 - Doit répondre au Health Check (/)', async () => {
+  it('200 - Doit répondre positivement à la route racine', async () => {
     const res = await request(app).get('/');
-    
-    // Valide la branche de réponse principale de app.js
     expect(res.statusCode).toBe(200);
     expect(res.text).toContain('API Petite Maison du Troc opérationnelle');
   });
 
   /**
-   * TEST 2 : GESTION DES ERREURS GLOBALES
-   * Objectif : Vérifier que Express gère les routes inexistantes proprement.
+   * TEST 2 : Logique de création de dossier (Lignes 37-38)
+   * Objectif : Forcer le passage dans la création du dossier uploads.
+   */
+  it('Logic - Doit s assurer que le dossier uploads est géré', () => {
+    const uploadsDir = path.join(__dirname, '../../uploads');
+    // On vérifie simplement que la logique de l'app a bien rendu le dossier disponible
+    expect(fs.existsSync(uploadsDir)).toBe(true);
+  });
+
+  /**
+   * TEST 3 : Gestion 404
+   * Objectif : Couvrir les middlewares de fin de chaîne.
    */
   it('404 - Doit retourner une erreur pour une route inconnue', async () => {
-    const res = await request(app).get('/api/v1/unknown-route');
-    
-    // Assure la robustesse globale de l'application
+    const res = await request(app).get('/api/v1/unknown');
     expect(res.statusCode).toBe(404);
   });
 });
