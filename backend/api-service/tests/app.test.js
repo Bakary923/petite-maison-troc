@@ -1,48 +1,41 @@
 const request = require('supertest');
-const fs = require('fs');
-const path = require('path');
-
-/**
- * 💡 TECHNIQUE DE MOCKING POUR SONARCLOUD
- * On simule le module 'fs' pour forcer le passage dans toutes les branches du code.
- */
-jest.mock('fs', () => ({
-  ...jest.requireActual('fs'),
-  existsSync: jest.fn()
-}));
-
-// On charge l'application APRÈS avoir configuré la simulation
 const app = require('../src/app');
 
-describe('🌐 Audit de Couverture SonarCloud : app.js', () => {
+/**
+ * ============================================================================
+ * AUDIT DE DISPONIBILITÉ & ROUTAGE (BOOTSTRAP)
+ * Ce fichier valide le point d'entrée principal de l'API.
+ * Note : Le fichier src/app.js est exclu du calcul de couverture SonarCloud
+ * car il gère l'orchestration technique (CORS, Helmet, Ports) et non la logique.
+ * ============================================================================
+ */
+describe('🌐 API Bootstrap - Tests fonctionnels de disponibilité', () => {
 
   /**
-   * TEST 1 : Création de dossier (Cible : Lignes 37-38)
-   * On force existsSync à false pour que Sonar voie l'exécution de mkdirSync.
+   * TEST 1 : Health Check (Route racine)
+   * Objectif : Vérifier que l'application est "Ready" sur le cluster Kubernetes.
+   * Utilité : Indispensable pour les sondes de disponibilité (Liveness/Readiness).
    */
-  it('Logic - Doit forcer l\'exécution de mkdirSync si le dossier est absent', () => {
-    fs.existsSync.mockReturnValue(false);
-    const uploadsDir = path.join(__dirname, '../../uploads');
-    
-    // Cette ligne simule l'absence et "allume" la ligne 38 en VERT sur Sonar
-    expect(fs.existsSync(uploadsDir)).toBe(false);
-  });
-
-  /**
-   * TEST 2 : Health Check (Cible : Lignes 74-76)
-   * On appelle la route racine pour couvrir le diagnostic.
-   */
-  it('200 - Doit répondre au Health Check (/)', async () => {
+  it('200 - Health Check (L’API répond positivement)', async () => {
     const res = await request(app).get('/');
+    
+    // Vérification du code de statut HTTP
     expect(res.statusCode).toBe(200);
+    
+    // Vérification du message de bienvenue de la plateforme
     expect(res.text).toContain('API Petite Maison du Troc opérationnelle');
   });
 
   /**
-   * TEST 3 : Gestion 404 (Cible : Middleware de fin)
+   * TEST 2 : Gestion du Routage Inexistant
+   * Objectif : Valider que le middleware 404 global est bien positionné.
+   * Sécurité : Empêche l'exposition d'erreurs techniques sur des routes invalides.
    */
-  it('404 - Doit gérer les routes inconnues', async () => {
-    const res = await request(app).get('/api/sonar-coverage-push');
+  it('404 - Route inconnue (Gestion des erreurs de routage)', async () => {
+    const res = await request(app).get('/api/v1/route-inexistante-test');
+    
+    // L'API doit retourner une erreur 404 propre
     expect(res.statusCode).toBe(404);
   });
+
 });
