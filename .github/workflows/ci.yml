@@ -97,9 +97,10 @@ jobs:
       - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
-          npm install
-          # Correction : Installation explicite de react-router-dom pour résoudre les erreurs Jest
-          npm install react-router-dom
+          # On force l'installation propre pour éviter les conflits de peer-deps
+          npm install --legacy-peer-deps
+          # On garantit la présence de react-router-dom pour l'environnement Jest
+          npm install react-router-dom --save-dev
           npm run lint --if-present
 
       # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
@@ -108,7 +109,8 @@ jobs:
       - name: 4, 5. Tests Unitaires & Intégration Frontend
         run: |
           cd frontend
-          npm test -- --coverage --watchAll=false
+          # NODE_PATH assure que Jest trouve bien les modules installés plus haut
+          NODE_PATH=./node_modules npm test -- --coverage --watchAll=false
 
       - name: Export Frontend Coverage
         uses: actions/upload-artifact@v4
