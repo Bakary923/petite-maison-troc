@@ -97,9 +97,10 @@ jobs:
       - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
-          # Nettoyage complet pour éviter les conflits et erreurs de modules
+          # Nettoyage complet pour éviter conflits CI
           rm -rf node_modules package-lock.json
-          npm install --legacy-peer-deps
+          # Installation propre avec legacy peer deps pour CI
+          npm ci --legacy-peer-deps
           npm run lint --if-present
 
       # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
@@ -108,7 +109,7 @@ jobs:
       - name: 4, 5. Tests Unitaires & Intégration Frontend
         run: |
           cd frontend
-          # Lance les tests sans NODE_PATH, MemoryRouter doit être utilisé dans les tests
+          # Tests frontend lancés normalement avec MemoryRouter
           npm test -- --coverage --watchAll=false
 
       - name: Export Frontend Coverage
