@@ -1,27 +1,30 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import Login from '../pages/login';
 
 /**
- * TEST UI : PAGE LOGIN
- * ✅ Justification Lead Dev : Validation de la résilience de l'interface.
+ * TEST UI : Page Login
+ *
+ * Objectif :
+ * - Vérifier la gestion des erreurs d'identifiants invalides
+ * - Validation de l'interface et de la résilience
+ * ✅ Compatible CI : Node + Jest, MemoryRouter utilisé pour simuler le routing
  */
-describe('📝 Test UI Métier : Page Login', () => {
+describe('📝 Page Login', () => {
   const mockLogin = jest.fn();
 
   const renderLogin = () => render(
     <AuthContext.Provider value={{ login: mockLogin }}>
-      <BrowserRouter><Login /></BrowserRouter>
+      <MemoryRouter><Login /></MemoryRouter>
     </AuthContext.Provider>
   );
 
-  it('⚠️ Doit afficher une erreur en cas d’identifiants invalides', async () => {
+  it('⚠️ Affiche une erreur si identifiants invalides', async () => {
     mockLogin.mockRejectedValueOnce(new Error('Identifiants invalides'));
     renderLogin();
     
-    // ✅ Meilleure pratique : Requêtes via screen.getBy...
     fireEvent.change(screen.getByPlaceholderText('ton@email.com'), { target: { value: 'bad@email.com' } });
     fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'wrongpass' } });
     fireEvent.click(screen.getByText('Se connecter'));
