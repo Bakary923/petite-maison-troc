@@ -97,8 +97,8 @@ jobs:
       - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
-          # Nettoyage complet pour éviter conflits CI
-          rm -rf node_modules package-lock.json
+          # Nettoyage des modules uniquement, on ne supprime pas package-lock.json
+          rm -rf node_modules
           # Installation propre avec legacy peer deps pour CI
           npm ci --legacy-peer-deps
           npm run lint --if-present
@@ -109,7 +109,7 @@ jobs:
       - name: 4, 5. Tests Unitaires & Intégration Frontend
         run: |
           cd frontend
-          # Tests frontend lancés normalement avec MemoryRouter
+          # Tests frontend lancés avec MemoryRouter pour compatibilité CI
           npm test -- --coverage --watchAll=false
 
       - name: Export Frontend Coverage
