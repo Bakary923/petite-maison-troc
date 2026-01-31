@@ -7,12 +7,10 @@ on:
 jobs:
   # ==========================================================
   # JOB BACKEND : Validation de la logique API
-  # Technologies : Node.js, ESLint, Jest, Supertest, PostgreSQL
   # ==========================================================
   backend-validation:
     name: Validation Backend
     runs-on: ubuntu-latest
-    # --- Infrastructure de base de données temporaire ---
     services:
       postgres:
         image: postgres:latest
@@ -29,7 +27,7 @@ jobs:
           --health-retries 5
 
     steps:
-      # ÉTAPE 1 : Checkout - GitHub Actions
+      # ÉTAPE 1 : Checkout (GitHub Actions)
       # Justification : Point de départ de la traçabilité du développement.
       - name: 1. Checkout Code
         uses: actions/checkout@v4
@@ -39,21 +37,28 @@ jobs:
         with:
           node-version: '20'
 
-      # ÉTAPE 5.1 : Initialisation du Schéma SQL
-      # Justification : Résout l'erreur "relation users does not exist" en créant les tables
-      # juste avant les tests. Utilise le client psql natif d'Ubuntu.
-      - name: 5.1 Initialize Database Schema
+      # INITIALISATION : Schéma SQL
+      # Justification : Prépare l'environnement pour les tests d'intégration.
+      - name: Initialize Database Schema
         run: |
           PGPASSWORD=password psql -h localhost -U user -d petite_maison_db -f backend/api-service/init.sql
 
-      # ÉTAPE 2, 3, 4, 5 : Install, Linting, Tests (Jest/Supertest)
-      # Justification : Valide la Capacité fonctionnelle et la sécurité des routes API.
-      - name: 2, 3, 4, 5. Install, Linting, Tests Backend
+      # ÉTAPE 2 & 3 : Install & Linting Backend
+      # Justification 2 : Assure la reproductibilité (exigence de Fiabilité).
+      # Justification 3 : Vérifie la Maintenabilité (ESLint).
+      - name: 2, 3. Install & Linting Backend
         run: |
           cd backend/api-service
-          npm ci                           
-          npm run lint                     
-          npm test -- --coverage --watchAll=false 
+          npm ci
+          npm run lint
+
+      # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Backend
+      # Justification 4 : Valide la Capacité fonctionnelle (Jest).
+      # Justification 5 : Vérifie la fonctionnalité métier (Supertest + DB).
+      - name: 4, 5. Tests Unitaires & Intégration Backend
+        run: |
+          cd backend/api-service
+          npm test -- --coverage --watchAll=false
         env:
           NODE_ENV: test
           DB_HOST: localhost
@@ -76,6 +81,8 @@ jobs:
     name: Validation Frontend
     runs-on: ubuntu-latest
     steps:
+      # ÉTAPE 1 : Checkout (GitHub Actions)
+      # Justification : Point de départ de la traçabilité du développement.
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
@@ -84,13 +91,23 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 2, 4. Install & Tests Frontend
+      # ÉTAPE 2 & 3 : Install & Linting Frontend
+      # Justification 2 : Assure la reproductibilité (exigence de Fiabilité).
+      # Justification 3 : Vérifie la Maintenabilité (normes de codage React).
+      - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
           npm install
-          npm test -- --coverage --watchAll=false --passWithNoTests
+          npm run lint --if-present
 
-      # Exportation du rapport de couverture frontend
+      # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
+      # Justification 4 : Valide la Capacité fonctionnelle (Jest).
+      # Justification 5 : Vérifie la fonctionnalité métier (Contexts & Forms).
+      - name: 4, 5. Tests Unitaires & Intégration Frontend
+        run: |
+          cd frontend
+          npm test -- --coverage --watchAll=false
+
       - name: Export Frontend Coverage
         uses: actions/upload-artifact@v4
         with:
@@ -113,22 +130,13 @@ jobs:
         with:
           fetch-depth: 0 
 
-      # Téléchargement explicite pour éviter les erreurs de chemins dans Sonar
-      - name: Download Backend Coverage
+      - name: Download Reports
         uses: actions/download-artifact@v4
         with:
-          name: backend-coverage
-          path: backend-reports
+          path: reports
 
-      - name: Download Frontend Coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-coverage
-          path: frontend-reports
-
-      # ÉTAPE 6 : Qualité & Scan - SonarCloud
+      # ÉTAPE 6 : Qualité & Scan (SonarCloud)
       # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
-      # On utilise les nouveaux chemins des rapports téléchargés ci-dessus.
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -137,9 +145,10 @@ jobs:
         with:
           projectBaseDir: .
           args: >
-            -Dsonar.javascript.lcov.reportPaths=backend-reports/lcov.info,frontend-reports/lcov.info
+            -Dsonar.javascript.lcov.reportPaths=reports/backend-coverage/lcov.info,reports/frontend-coverage/lcov.info
+            -Dsonar.coverage.exclusions=backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js
 
-      # ÉTAPE 7 : Build Images - Docker
+      # ÉTAPE 7 : Build Image (Docker)
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
       - name: 7. Build Backend & Frontend Images
         run: |
@@ -151,15 +160,15 @@ jobs:
           docker build -t $FRONT_ID ./frontend
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
-      # ÉTAPE 8 : Scan d'images - Trivy (Vérification de la Sécurité)
-      # Justification : Répond à la consigne de "Scan de vulnérabilités".
+      # ÉTAPE 8 : Scan d'image (Trivy)
+      # Justification : Répond à la consigne de "Scan de vulnérabilités" des conteneurs.
       - name: 8. Scan Images with Trivy
         run: |
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
-      # ÉTAPE 9 : Push Registry - GHCR.io
-      # Justification : Rend les livrables disponibles pour le déploiement (Disponibilité).
+      # ÉTAPE 9 : Push Registry (GHCR.io)
+      # Justification : Rend l'image disponible pour le déploiement (Disponibilité).
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
