@@ -2,7 +2,7 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
-import Login from '../pages/Login';
+import Login from '../pages/login';
 
 /**
  * TEST UI : PAGE LOGIN

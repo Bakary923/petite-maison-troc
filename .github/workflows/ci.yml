@@ -98,6 +98,8 @@ jobs:
         run: |
           cd frontend
           npm install
+          # Correction : Installation explicite de react-router-dom pour résoudre les erreurs Jest
+          npm install react-router-dom
           npm run lint --if-present
 
       # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
