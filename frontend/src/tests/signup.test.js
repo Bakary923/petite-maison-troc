@@ -22,7 +22,12 @@ describe('📝 Page Signup', () => {
       </AuthContext.Provider>
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Nom d'utilisateur"), { target: { value: 'Bakary' } });
+    // ⛔ L'ancien test cherchait un placeholder qui n'existe pas
+    // fireEvent.change(screen.getByPlaceholderText("Nom d'utilisateur"), ...
+
+    // ✅ Correction : le placeholder réel est "Mon pseudo"
+    fireEvent.change(screen.getByPlaceholderText("Mon pseudo"), { target: { value: 'Bakary' } });
+
     fireEvent.change(screen.getByPlaceholderText('ton@email.com'), { target: { value: 'test@test.com' } });
     
     const passwordInputs = screen.getAllByPlaceholderText('••••••••');
