@@ -6,9 +6,10 @@ import CreateAnnonce from '../pages/CreateAnnonce';
 // ✅ SOLUTION CI : Isolation du module router
 // Le mock remplace l'import physique qui bloquait la CI Ubuntu
 jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
   useNavigate: () => jest.fn(),
   MemoryRouter: ({ children }) => <div>{children}</div>,
+  Link: ({ children }) => <a>{children}</a>,
+  Navigate: () => null,
 }));
 
 /**

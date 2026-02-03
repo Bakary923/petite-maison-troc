@@ -1,8 +1,15 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
-import { MemoryRouter } from 'react-router-dom';
 import Login from '../pages/login';
+
+// ✅ MOCK CI : Remplace totalement react-router-dom pour éviter les erreurs Ubuntu
+jest.mock('react-router-dom', () => ({
+  MemoryRouter: ({ children }) => <div>{children}</div>,
+  useNavigate: () => jest.fn(),
+  Link: ({ children }) => <a>{children}</a>,
+  Navigate: () => null,
+}));
 
 /**
  * TEST UI : Page Login
@@ -10,14 +17,14 @@ import Login from '../pages/login';
  * Objectif :
  * - Vérifier la gestion des erreurs d'identifiants invalides
  * - Validation de l'interface et de la résilience
- * ✅ Compatible CI : Node + Jest, MemoryRouter utilisé pour simuler le routing
+ * ✅ Compatible CI : Node + Jest, MemoryRouter simulé
  */
 describe('📝 Page Login', () => {
   const mockLogin = jest.fn();
 
   const renderLogin = () => render(
     <AuthContext.Provider value={{ login: mockLogin }}>
-      <MemoryRouter><Login /></MemoryRouter>
+      <Login />
     </AuthContext.Provider>
   );
 
