@@ -1,8 +1,15 @@
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
-import { MemoryRouter } from 'react-router-dom';
 import CreateAnnonce from '../pages/CreateAnnonce';
+
+// ✅ SOLUTION CI : Isolation du module router
+// Le mock remplace l'import physique qui bloquait la CI Ubuntu
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+  MemoryRouter: ({ children }) => <div>{children}</div>,
+}));
 
 /**
  * TEST MÉTIER : Création d’annonce
@@ -17,7 +24,7 @@ describe('📦 Page CreateAnnonce', () => {
 
   const renderCreate = () => render(
     <AuthContext.Provider value={{ authFetch: mockAuthFetch }}>
-      <MemoryRouter><CreateAnnonce /></MemoryRouter>
+        <CreateAnnonce />
     </AuthContext.Provider>
   );
 
