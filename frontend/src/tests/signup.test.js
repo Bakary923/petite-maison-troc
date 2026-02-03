@@ -3,22 +3,13 @@ import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import Signup from '../pages/signup';
 
-// ✅ SOLUTION CI : Mock manuel pour éviter l'erreur "Cannot find module react-router-dom"
-// On simule MemoryRouter pour que le test puisse s'exécuter sans le module physique
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => jest.fn(),
-  MemoryRouter: ({ children }) => <div>{children}</div>,
-  Link: ({ children }) => <a>{children}</a>,
-  Navigate: () => null,
-}));
-
 /**
  * TEST MÉTIER : Inscription (Signup)
  *
  * Objectif :
  * - Vérifier la validation des mots de passe
  * - Assurer la résilience de l'interface lors d'erreurs
- * ✅ Compatible CI : Node + Jest, MemoryRouter utilisé
+ * ✅ Compatible CI : Node + Jest, MemoryRouter simulé via mock global
  * ✅ Conformité ESLint : Utilisation exclusive de `screen`
  */
 describe('📝 Page Signup', () => {

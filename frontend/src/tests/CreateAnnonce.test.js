@@ -3,22 +3,13 @@ import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import CreateAnnonce from '../pages/CreateAnnonce';
 
-// ✅ SOLUTION CI : Isolation du module router
-// Le mock remplace l'import physique qui bloquait la CI Ubuntu
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => jest.fn(),
-  MemoryRouter: ({ children }) => <div>{children}</div>,
-  Link: ({ children }) => <a>{children}</a>,
-  Navigate: () => null,
-}));
-
 /**
  * TEST MÉTIER : Création d’annonce
  *
  * Objectif :
  * - Vérifier l’envoi des données via FormData
  * - Support Multipart/FormData pour CI et orchestrateur
- * ✅ Compatible CI : Node + Jest, MemoryRouter utilisé
+ * ✅ Compatible CI : Node + Jest, MemoryRouter simulé via mock global
  */
 describe('📦 Page CreateAnnonce', () => {
   const mockAuthFetch = jest.fn();
