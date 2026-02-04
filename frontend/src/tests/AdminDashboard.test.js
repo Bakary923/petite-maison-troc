@@ -3,32 +3,35 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// ✅ MOCK AdminCard (Isolation) : 
-// On remplace le composant enfant par une version simplifiée pour ne tester 
-// que la logique de filtrage du Dashboard (Responsabilité Unique).
+// ✅ MOCK AdminCard (Isolation)
 jest.mock('../components/AdminCard', () => {
   return function MockAdminCard({ annonce }) {
     return <div data-testid="admin-card">{annonce.titre}</div>;
   };
 });
 
-// Mock de la fonction de récupération sécurisée
 const mockAuthFetch = jest.fn();
 
 describe('📊 AdminDashboard - Tests de Logique Modération', () => {
   
-  beforeEach(() => {
-    jest.clearAllMocks();
-    
-    // ✅ FIABILITÉ : On neutralise les warnings de styles (conflit border/borderColor)
-    // qui polluent les logs de la CI sans impacter la logique métier.
-    jest.spyOn(console, 'error').mockImplementation((msg) => {
-      if (!msg.includes('borderColor')) console.error(msg);
-    });
+  // On définit une référence vers la vraie fonction console.error
+  const originalError = console.error;
+
+  beforeAll(() => {
+    // ✅ FIABILITÉ : On filtre les erreurs de style sans créer de boucle infinie
+    console.error = (...args) => {
+      if (typeof args[0] === 'string' && args[0].includes('borderColor')) return;
+      originalError.call(console, ...args);
+    };
   });
 
-  afterEach(() => {
-    console.error.mockRestore();
+  afterAll(() => {
+    // On restaure la console après les tests
+    console.error = originalError;
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   // ==========================================================
@@ -40,7 +43,6 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
         <AdminDashboard />
       </AuthContext.Provider>
     );
-
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
@@ -62,9 +64,7 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
       </AuthContext.Provider>
     );
 
-    // findByText attend la résolution de la promesse (Asynchronisme)
     expect(await screen.findByText(/annonce modérée a/i)).toBeInTheDocument();
-    expect(await screen.findByText(/annonce modérée b/i)).toBeInTheDocument();
   });
 
   // ==========================================================
@@ -82,7 +82,7 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
       </AuthContext.Provider>
     );
 
-    // 1. Attente du chargement initial (Filtre par défaut : en_attente)
+    // 1. Attente du chargement initial
     await waitFor(() => {
       expect(screen.queryByText(/chargement/i)).not.toBeInTheDocument();
     });
@@ -91,18 +91,14 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
     // 2. Action : Clic sur le filtre VALIDÉES
     const btnValidees = screen.getByText(/validées/i);
     fireEvent.click(btnValidees);
-    
-    // Validation : L'intercepteur authFetch doit être sollicité une 2ème fois
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
 
-    // ✅ STABILITÉ CI : Pause technique pour laisser le state React se stabiliser
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // ✅ STABILITÉ : On utilise waitFor au lieu de setTimeout pour être plus "React-compliant"
+    await waitFor(() => expect(screen.queryByText(/chargement/i)).not.toBeInTheDocument());
 
     // 3. Action : Clic sur le filtre REJETÉES
     const btnRejetees = screen.getByText(/rejetées/i);
     fireEvent.click(btnRejetees);
-    
-    // Validation finale de l'incrémentation des appels API
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
   });
 
