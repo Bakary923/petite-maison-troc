@@ -1,17 +1,18 @@
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import Annonces from '../pages/Annonces';
 import { AuthContext } from '../contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+
+// ✅ MOCK GLOBAL : Isolation de react-router-dom pour la CI
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+  BrowserRouter: ({ children }) => <div>{children}</div>
+}));
+
+import Annonces from '../pages/Annonces';
 
 // Mock global fetch
 global.fetch = jest.fn();
-
-// Mock navigate()
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate
-}));
 
 describe('📦 Page Annonces', () => {
 
@@ -19,11 +20,9 @@ describe('📦 Page Annonces', () => {
 
   const renderWithContext = (user = null, accessToken = null) => {
     return render(
-      <BrowserRouter>
-        <AuthContext.Provider value={{ user, authFetch: mockAuthFetch, accessToken }}>
-          <Annonces />
-        </AuthContext.Provider>
-      </BrowserRouter>
+      <AuthContext.Provider value={{ user, authFetch: mockAuthFetch, accessToken }}>
+        <Annonces />
+      </AuthContext.Provider>
     );
   };
 
@@ -82,13 +81,7 @@ describe('📦 Page Annonces', () => {
   // 4. Chargement des annonces privées (user connecté)
   // ============================================================
   it('charge mes annonces si user connecté', async () => {
-    // Public
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ annonces: [] })
-    });
-
-    // Privé
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [] }) });
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -107,13 +100,7 @@ describe('📦 Page Annonces', () => {
   // 5. Changement d’onglet
   // ============================================================
   it('change d’onglet et affiche mes annonces', async () => {
-    // Public
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ annonces: [] })
-    });
-
-    // Privé
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [] }) });
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -122,7 +109,6 @@ describe('📦 Page Annonces', () => {
     });
 
     renderWithContext({ id: 1, username: 'bob', role: 'user' }, 'validToken');
-
     const tab = screen.getByText(/mes annonces/i);
     fireEvent.click(tab);
 
@@ -135,16 +121,10 @@ describe('📦 Page Annonces', () => {
   // 6. Bouton "Créer une annonce"
   // ============================================================
   it('navigue vers /create-annonce au clic', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ annonces: [] })
-    });
-
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [] }) });
     renderWithContext({ id: 1, username: 'bob' }, 'token');
-
     const btn = screen.getByText(/\+ créer une annonce/i);
     fireEvent.click(btn);
-
     expect(mockNavigate).toHaveBeenCalledWith('/create-annonce');
   });
 
@@ -152,49 +132,19 @@ describe('📦 Page Annonces', () => {
   // 7. Edition d’une annonce
   // ============================================================
   it('permet de modifier une annonce', async () => {
-    // Public
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        annonces: [{ id: 1, titre: 'Old', description: 'Old desc', user_id: 1 }]
-      })
-    });
-
-    // Privé
-    mockAuthFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        annonces: [{ id: 1, titre: 'Old', description: 'Old desc', user_id: 1 }]
-      })
-    });
-
-    // PUT
-    mockAuthFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        annonce: { id: 1, titre: 'New', description: 'New desc', user_id: 1 }
-      })
-    });
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [{ id: 1, titre: 'Old', description: 'Old desc', user_id: 1 }] }) });
+    mockAuthFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [{ id: 1, titre: 'Old', description: 'Old desc', user_id: 1 }] }) });
+    mockAuthFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonce: { id: 1, titre: 'New', description: 'New desc', user_id: 1 } }) });
 
     renderWithContext({ id: 1, username: 'bob' }, 'token');
-
-    await waitFor(() => {
-      expect(screen.getByText('Old')).toBeTruthy();
-    });
+    await waitFor(() => expect(screen.getByText('Old')).toBeTruthy());
 
     fireEvent.click(screen.getByText(/modifier/i));
-
-    const titreInput = screen.getByDisplayValue('Old');
-    fireEvent.change(titreInput, { target: { value: 'New' } });
-
-    const descInput = screen.getByDisplayValue('Old desc');
-    fireEvent.change(descInput, { target: { value: 'New desc' } });
-
+    fireEvent.change(screen.getByDisplayValue('Old'), { target: { value: 'New' } });
+    fireEvent.change(screen.getByDisplayValue('Old desc'), { target: { value: 'New desc' } });
     fireEvent.click(screen.getByText(/sauvegarder/i));
 
-    await waitFor(() => {
-      expect(screen.getByText('New')).toBeTruthy();
-    });
+    await waitFor(() => expect(screen.getByText('New')).toBeTruthy());
   });
 
   // ============================================================
@@ -202,36 +152,14 @@ describe('📦 Page Annonces', () => {
   // ============================================================
   it('supprime une annonce', async () => {
     window.confirm = jest.fn(() => true);
-
-    // Public
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        annonces: [{ id: 1, titre: 'A supprimer', description: '...' }]
-      })
-    });
-
-    // Privé
-    mockAuthFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        annonces: [{ id: 1, titre: 'A supprimer', description: '...' }]
-      })
-    });
-
-    // DELETE
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [{ id: 1, titre: 'A supprimer', description: '...' }] }) });
+    mockAuthFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ annonces: [{ id: 1, titre: 'A supprimer', description: '...' }] }) });
     mockAuthFetch.mockResolvedValueOnce({ ok: true });
 
     renderWithContext({ id: 1, username: 'bob' }, 'token');
-
-    await waitFor(() => {
-      expect(screen.getByText('A supprimer')).toBeTruthy();
-    });
+    await waitFor(() => expect(screen.getByText('A supprimer')).toBeTruthy());
 
     fireEvent.click(screen.getByText(/supprimer/i));
-
-    await waitFor(() => {
-      expect(screen.queryByText('A supprimer')).toBeNull();
-    });
+    await waitFor(() => expect(screen.queryByText('A supprimer')).toBeNull());
   });
 });

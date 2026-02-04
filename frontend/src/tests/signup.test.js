@@ -3,14 +3,14 @@ import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import Signup from '../pages/signup';
 
+// ✅ SOLUTION CI : Simulation du routeur pour l'inscription
+jest.mock('react-router-dom', () => ({
+  useNavigate: () => jest.fn()
+}));
+
 /**
  * TEST MÉTIER : Inscription (Signup)
- *
- * Objectif :
- * - Vérifier la validation des mots de passe
- * - Assurer la résilience de l'interface lors d'erreurs
- * ✅ Compatible CI : Node + Jest, MemoryRouter simulé via mock global
- * ✅ Conformité ESLint : Utilisation exclusive de `screen`
+ * Objectif : Valider la vérification de sécurité des mots de passe.
  */
 describe('📝 Page Signup', () => {
   const mockRegister = jest.fn();
@@ -22,12 +22,8 @@ describe('📝 Page Signup', () => {
       </AuthContext.Provider>
     );
 
-    // ⛔ L'ancien test cherchait un placeholder qui n'existe pas
-    // fireEvent.change(screen.getByPlaceholderText("Nom d'utilisateur"), ...
-
-    // ✅ Correction : le placeholder réel est "Mon pseudo"
+    // Utilisation du placeholder réel défini dans le composant
     fireEvent.change(screen.getByPlaceholderText("Mon pseudo"), { target: { value: 'Bakary' } });
-
     fireEvent.change(screen.getByPlaceholderText('ton@email.com'), { target: { value: 'test@test.com' } });
     
     const passwordInputs = screen.getAllByPlaceholderText('••••••••');
@@ -39,7 +35,6 @@ describe('📝 Page Signup', () => {
     await waitFor(() => {
       expect(screen.getByText('Les mots de passe ne correspondent pas')).toBeTruthy();
     });
-    
     expect(mockRegister).not.toHaveBeenCalled();
   });
 });

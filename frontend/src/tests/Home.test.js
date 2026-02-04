@@ -1,12 +1,15 @@
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import Home from '../pages/Home';
-import { BrowserRouter } from 'react-router-dom';
 
-// Mock du navigate()
+// ✅ SOLUTION CI : Mock global complet pour isoler react-router-dom
+// On ne fait plus de "requireActual" pour ne pas dépendre du module physique sur Ubuntu
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
+  // On remplace BrowserRouter par un simple conteneur
+  BrowserRouter: ({ children }) => <div>{children}</div>,
+  Link: ({ children, to }) => <a href={to}>{children}</a>
 }));
 
 // Mock du fetch global
@@ -20,9 +23,7 @@ describe('🏠 Page Home', () => {
 
   const renderHome = () =>
     render(
-      <BrowserRouter>
         <Home />
-      </BrowserRouter>
     );
 
   // ============================================================

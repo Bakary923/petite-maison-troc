@@ -1,24 +1,26 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import Navbar from '../components/Navbar';
 import { AuthContext } from '../contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
 
-// Mock du navigate()
+// ✅ SOLUTION CI : Mock global complet
+// On déclare mockNavigate ici pour qu'il soit accessible dans les tests
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
+  // On crée un composant factice pour remplacer BrowserRouter
+  BrowserRouter: ({ children }) => <div>{children}</div>,
+  Link: ({ children, to }) => <a href={to}>{children}</a>
 }));
+
+import Navbar from '../components/Navbar';
 
 describe('🧭 Navbar', () => {
 
   const renderNavbar = (user = null, logout = jest.fn()) => {
     return render(
-      <BrowserRouter>
-        <AuthContext.Provider value={{ user, logout }}>
-          <Navbar />
-        </AuthContext.Provider>
-      </BrowserRouter>
+      <AuthContext.Provider value={{ user, logout }}>
+        <Navbar />
+      </AuthContext.Provider>
     );
   };
 
@@ -31,7 +33,6 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('affiche Connexion et Créer un compte si user non connecté', () => {
     renderNavbar(null);
-
     expect(screen.getByText(/connexion/i)).toBeTruthy();
     expect(screen.getByText(/créer un compte/i)).toBeTruthy();
   });
@@ -41,9 +42,7 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('navigue vers /login au clic sur Connexion', () => {
     renderNavbar(null);
-
     fireEvent.click(screen.getByText(/connexion/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
@@ -52,9 +51,7 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('navigue vers /signup au clic sur Créer un compte', () => {
     renderNavbar(null);
-
     fireEvent.click(screen.getByText(/créer un compte/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/signup');
   });
 
@@ -63,7 +60,6 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('affiche le nom de l’utilisateur connecté', () => {
     renderNavbar({ username: 'Bakary', role: 'user' });
-
     expect(screen.getByText(/bonsoir, bakary/i)).toBeTruthy();
   });
 
@@ -72,13 +68,11 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('affiche le bouton Admin si user est admin', () => {
     renderNavbar({ username: 'AdminUser', role: 'admin' });
-
     expect(screen.getByText(/admin/i)).toBeTruthy();
   });
 
   it('n’affiche pas le bouton Admin si user non admin', () => {
     renderNavbar({ username: 'User', role: 'user' });
-
     expect(screen.queryByText(/admin/i)).toBeNull();
   });
 
@@ -87,9 +81,7 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('navigue vers /admin au clic sur Admin', () => {
     renderNavbar({ username: 'AdminUser', role: 'admin' });
-
     fireEvent.click(screen.getByText(/admin/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/admin');
   });
 
@@ -98,9 +90,7 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('navigue vers /annonces au clic sur Annonces', () => {
     renderNavbar({ username: 'User', role: 'user' });
-
     fireEvent.click(screen.getByText(/annonces/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/annonces');
   });
 
@@ -109,11 +99,8 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('appelle logout et navigue vers / au clic sur Se déconnecter', () => {
     const mockLogout = jest.fn();
-
     renderNavbar({ username: 'User', role: 'user' }, mockLogout);
-
     fireEvent.click(screen.getByText(/se déconnecter/i));
-
     expect(mockLogout).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
@@ -123,9 +110,7 @@ describe('🧭 Navbar', () => {
   // ============================================================
   it('navigue vers / au clic sur le logo', () => {
     renderNavbar(null);
-
     fireEvent.click(screen.getByText(/la petite maison épouvante/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
