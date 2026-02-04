@@ -2,25 +2,23 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
-import AdminDashboard from '../pages/AdminDashboard';
 
-// Mock AdminCard pour simplifier
-jest.mock('../components/AdminCard', () => ({ annonce }) => (
-  <div data-testid="admin-card">{annonce.titre}</div>
-));
-
-// 🔥 On mocke les styles pour éviter les warnings React liés aux styles inline
+// On mocke TOUT le fichier AdminDashboard pour neutraliser les styles
 jest.mock('../pages/AdminDashboard', () => {
   const original = jest.requireActual('../pages/AdminDashboard');
   return {
     __esModule: true,
     ...original,
-    styles: {
-      ...original.styles,
-      filterButtonActive: {} // <-- plus de border / borderColor
-    }
+    styles: {} // 🔥 styles complètement neutralisés
   };
 });
+
+import AdminDashboard from '../pages/AdminDashboard';
+
+// Mock simple d’AdminCard
+jest.mock('../components/AdminCard', () => ({ annonce }) => (
+  <div data-testid="admin-card">{annonce.titre}</div>
+));
 
 const mockAuthFetch = jest.fn();
 
@@ -70,7 +68,7 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // On attend que les boutons soient visibles
+    // Attendre que les boutons soient visibles
     await screen.findByText(/en attente/i);
 
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
