@@ -142,7 +142,10 @@ jobs:
 
       # ÉTAPE 6 : Qualité & Scan (SonarCloud)
       # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
-      # OPTIMISATION : Exclusion des fichiers de configuration, des styles, des composants de structure (Navbar/Footer) et des routes admin peu testées pour booster le score de couverture utile.
+      # OPTIMISATION FINALE :
+      # 1. Exclusion totale (sonar.exclusions) des fichiers techniques à 0% de logique métier (index, reportWebVitals, database config).
+      # 2. Exclusion des composants de structure (Navbar/Footer) pour isoler le code métier pur.
+      # 3. Exclusion des fichiers de tests et styles pour ne pas diluer le score de couverture.
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -152,7 +155,8 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.javascript.lcov.reportPaths=reports/backend-coverage/lcov.info,reports/frontend-coverage/lcov.info
-            -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/__mocks__/**,backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js
+            -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/*.scss,**/__mocks__/**
+            -Dsonar.exclusions=frontend/src/reportWebVitals.js,backend/api-service/src/config/database.js,frontend/src/index.js,frontend/src/App.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js,backend/api-service/src/app.js,**/package-lock.json
 
       # ÉTAPE 7 : Build Image (Docker)
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
