@@ -5,6 +5,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
+import AdminDashboard from '../pages/AdminDashboard';
 
 // ------------------------------------------------------------
 // 📌 MOCK COMPLET DES STYLES AVANT L’IMPORT DU COMPOSANT
@@ -20,11 +21,6 @@ jest.mock('../pages/AdminDashboard', () => {
     styles: {} // ⛔ styles désactivés → plus de conflits border/borderColor
   };
 });
-
-// ------------------------------------------------------------
-// 📌 IMPORT DU COMPOSANT APRÈS LE MOCK
-// ------------------------------------------------------------
-import AdminDashboard from '../pages/AdminDashboard';
 
 // ------------------------------------------------------------
 // 📌 MOCK AdminCard (évite de rendre le vrai composant)
