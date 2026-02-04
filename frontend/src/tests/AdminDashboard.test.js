@@ -3,22 +3,25 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
 
-// On mocke TOUT le fichier AdminDashboard pour neutraliser les styles
+// --- IMPORTANT ---
+// On importe d'abord le composant pour respecter ESLint (import/first)
+import AdminDashboard from '../pages/AdminDashboard';
+
+// --- Mock AdminCard pour simplifier le rendu ---
+jest.mock('../components/AdminCard', () => ({ annonce }) => (
+  <div data-testid="admin-card">{annonce.titre}</div>
+));
+
+// --- Neutralisation complète des styles inline ---
+// Cela évite les warnings React liés aux conflits border/borderColor
 jest.mock('../pages/AdminDashboard', () => {
   const original = jest.requireActual('../pages/AdminDashboard');
   return {
     __esModule: true,
     ...original,
-    styles: {} // 🔥 styles complètement neutralisés
+    styles: {} // styles vidés = plus aucun conflit CSS
   };
 });
-
-import AdminDashboard from '../pages/AdminDashboard';
-
-// Mock simple d’AdminCard
-jest.mock('../components/AdminCard', () => ({ annonce }) => (
-  <div data-testid="admin-card">{annonce.titre}</div>
-));
 
 const mockAuthFetch = jest.fn();
 
@@ -27,6 +30,7 @@ describe('AdminDashboard', () => {
     jest.clearAllMocks();
   });
 
+  // --- 1) Accès refusé ---
   it('affiche accès refusé si user non admin', () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
@@ -37,6 +41,7 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
+  // --- 2) Chargement des annonces ---
   it('charge et affiche les annonces admin', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
@@ -52,10 +57,12 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
+    // findByText attend automatiquement la fin du chargement
     expect(await screen.findByText(/annonce a/i)).toBeInTheDocument();
     expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
   });
 
+  // --- 3) Changement de filtre ---
   it('relance authFetch quand on change de filtre', async () => {
     mockAuthFetch.mockResolvedValue({
       ok: true,
@@ -68,7 +75,7 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Attendre que les boutons soient visibles
+    // On attend que les boutons soient rendus
     await screen.findByText(/en attente/i);
 
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
@@ -86,6 +93,7 @@ describe('AdminDashboard', () => {
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(4));
   });
 
+  // --- 4) État vide ---
   it('affiche un état vide si aucune annonce', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
