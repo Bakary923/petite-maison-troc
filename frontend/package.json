@@ -17,7 +17,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test --watchAll=false --ci",
+    "test": "react-scripts test --watchAll=false --ci --coverage --transformIgnorePatterns \"node_modules/(?!react-router-dom|@remix-run|@babel/runtime)/\"",
     "lint": "eslint src"
   },
   "eslintConfig": {
