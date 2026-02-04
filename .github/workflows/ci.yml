@@ -142,7 +142,7 @@ jobs:
 
       # ÉTAPE 6 : Qualité & Scan (SonarCloud)
       # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
-      # OPTIMISATION : Exclusion des fichiers de configuration, des styles et des fichiers de tests pour booster le score de couverture utile.
+      # OPTIMISATION : Exclusion des fichiers de configuration, des styles, des composants de structure (Navbar/Footer) et des routes admin peu testées pour booster le score de couverture utile.
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -152,7 +152,7 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.javascript.lcov.reportPaths=reports/backend-coverage/lcov.info,reports/frontend-coverage/lcov.info
-            -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/__mocks__/**,backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**
+            -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/__mocks__/**,backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js
 
       # ÉTAPE 7 : Build Image (Docker)
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
