@@ -1,10 +1,14 @@
 import React, { useContext } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
-// Mock global de fetch
+// Mock global de fetch pour simuler les appels API backend
 global.fetch = jest.fn();
 
+/**
+ * Composant de test minimaliste pour consommer le contexte
+ * sans dépendre de l'UI réelle ou du Router.
+ */
 const TestComponent = () => {
   const { user, login, logout, accessToken } = useContext(AuthContext);
   return (
@@ -40,24 +44,32 @@ describe('🛡️ AuthContext Logic', () => {
     });
 
     render(<AuthProvider><TestComponent /></AuthProvider>);
-    screen.getByText('Login').click();
+    
+    // ✅ Utilisation de act pour stabiliser les mises à jour d'état React 19
+    await act(async () => {
+      screen.getByText('Login').click();
+    });
 
-    // ✅ FIX : Une seule assertion dans le waitFor
+    // On attend uniquement la mise à jour asynchrone du storage
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBe('fake-access-token');
     });
     
-    // ✅ On vérifie le reste du state en dehors
+    // Vérification finale du DOM
     expect(screen.getByTestId('user').textContent).toBe('Bakary');
   });
 
   it('✅ Doit nettoyer le localStorage au logout', async () => {
     localStorage.setItem('accessToken', 'token-a-effacer');
+    
     render(<AuthProvider><TestComponent /></AuthProvider>);
     
-    screen.getByText('Logout').click();
+    // ✅ On enveloppe le clic de déconnexion
+    await act(async () => {
+      screen.getByText('Logout').click();
+    });
 
-    // ✅ FIX : Une seule assertion ici aussi
+    // On attend que le storage soit vidé
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBeNull();
     });
