@@ -3,8 +3,8 @@ import AdminDashboard from '../pages/AdminDashboard';
 import { AuthContext } from '../contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
 
-// Mock AdminCard
-jest.mock('../components/AdminCard.js', () => ({ annonce, onValidate, onReject, onDelete }) => (
+// Mock AdminCard (IMPORTANT : sans .js)
+jest.mock('../components/AdminCard', () => ({ annonce, onValidate, onReject, onDelete }) => (
   <div data-testid="admin-card">
     <p>{annonce.titre}</p>
     <button onClick={() => onValidate(annonce.id)}>validate</button>
@@ -54,7 +54,7 @@ describe('AdminDashboard', () => {
 
     renderWithContext({ username: 'admin', role: 'admin' });
 
-    const card = await screen.findByTestId('admin-card'); // ✔ correction ESLint
+    const card = await screen.findByTestId('admin-card'); // ✔ ESLint OK
     expect(card).toBeTruthy();
   });
 
