@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
-// On mocke fetch pour simuler l'API
+// Mock global de fetch
 global.fetch = jest.fn();
 
 const TestComponent = () => {
@@ -23,13 +23,13 @@ describe('🛡️ AuthContext Logic', () => {
     localStorage.clear();
   });
 
-  it('✅ Doit initialiser avec guest et sans token', () => {
+  it('✅ Initialise avec guest et sans token', () => {
     render(<AuthProvider><TestComponent /></AuthProvider>);
     expect(screen.getByTestId('user').textContent).toBe('guest');
     expect(screen.getByTestId('token').textContent).toBe('no-token');
   });
 
-  it('✅ Doit stocker les jetons après un login réussi', async () => {
+  it('✅ Stocke les jetons après un login réussi', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -42,10 +42,13 @@ describe('🛡️ AuthContext Logic', () => {
     render(<AuthProvider><TestComponent /></AuthProvider>);
     screen.getByText('Login').click();
 
+    // ✅ FIX : Une seule assertion dans le waitFor
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBe('fake-access-token');
-      expect(screen.getByTestId('user').textContent).toBe('Bakary');
     });
+    
+    // ✅ On vérifie le reste du state en dehors
+    expect(screen.getByTestId('user').textContent).toBe('Bakary');
   });
 
   it('✅ Doit nettoyer le localStorage au logout', async () => {
@@ -54,9 +57,11 @@ describe('🛡️ AuthContext Logic', () => {
     
     screen.getByText('Logout').click();
 
+    // ✅ FIX : Une seule assertion ici aussi
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBeNull();
-      expect(screen.getByTestId('user').textContent).toBe('guest');
     });
+    
+    expect(screen.getByTestId('user').textContent).toBe('guest');
   });
 });
