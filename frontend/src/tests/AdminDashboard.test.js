@@ -24,7 +24,7 @@ describe('🔐 AdminDashboard', () => {
   });
 
   // ---------------------------------------------------------
-  // 1) Accès refusé si user n’est pas admin
+  // 1) Accès refusé si user non admin
   // ---------------------------------------------------------
   it('affiche un message d’accès refusé si user non admin', () => {
     render(
@@ -38,7 +38,7 @@ describe('🔐 AdminDashboard', () => {
   });
 
   // ---------------------------------------------------------
-  // 2) Chargement des annonces admin
+  // 2) Chargement et affichage des annonces admin
   // ---------------------------------------------------------
   it('charge et affiche les annonces admin', async () => {
     mockAuthFetch.mockResolvedValueOnce({
@@ -55,18 +55,19 @@ describe('🔐 AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Attendre la fin du chargement
-    await waitFor(() => {
-      expect(screen.getByText(/annonce a/i)).toBeInTheDocument();
-      expect(screen.getByText(/annonce b/i)).toBeInTheDocument();
-    });
+    // ESLint exige UNE SEULE assertion dans waitFor
+    await waitFor(() =>
+      expect(screen.getByText(/annonce a/i)).toBeInTheDocument()
+    );
+
+    // Deuxième assertion en dehors du waitFor
+    expect(screen.getByText(/annonce b/i)).toBeInTheDocument();
   });
 
   // ---------------------------------------------------------
   // 3) Changement de filtre (pending → validated → rejected → all)
   // ---------------------------------------------------------
   it('rappelle authFetch quand on change de filtre', async () => {
-    // Réponse initiale
     mockAuthFetch.mockResolvedValue({
       ok: true,
       json: async () => []
@@ -79,30 +80,27 @@ describe('🔐 AdminDashboard', () => {
     );
 
     // Attendre le premier fetch
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalled();
-    });
+    await waitFor(() =>
+      expect(mockAuthFetch).toHaveBeenCalledTimes(1)
+    );
 
-    // Cliquer sur "Validées"
+    // Validées
     fireEvent.click(screen.getByText(/validées/i));
+    await waitFor(() =>
+      expect(mockAuthFetch).toHaveBeenCalledTimes(2)
+    );
 
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalledTimes(2);
-    });
-
-    // Cliquer sur "Rejetées"
+    // Rejetées
     fireEvent.click(screen.getByText(/rejetées/i));
+    await waitFor(() =>
+      expect(mockAuthFetch).toHaveBeenCalledTimes(3)
+    );
 
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalledTimes(3);
-    });
-
-    // Cliquer sur "Toutes"
+    // Toutes
     fireEvent.click(screen.getByText(/toutes/i));
-
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalledTimes(4);
-    });
+    await waitFor(() =>
+      expect(mockAuthFetch).toHaveBeenCalledTimes(4)
+    );
   });
 
   // ---------------------------------------------------------
@@ -120,8 +118,8 @@ describe('🔐 AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    await waitFor(() => {
-      expect(screen.getByText(/aucune annonce trouvée/i)).toBeInTheDocument();
-    });
+    await waitFor(() =>
+      expect(screen.getByText(/aucune annonce trouvée/i)).toBeInTheDocument()
+    );
   });
 });
