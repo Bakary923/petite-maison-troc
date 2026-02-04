@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
 // Mock global de fetch pour simuler les appels API backend
@@ -15,8 +15,12 @@ const TestComponent = () => {
     <div>
       <div data-testid="user">{user ? user.username : 'guest'}</div>
       <div data-testid="token">{accessToken || 'no-token'}</div>
-      <button onClick={() => login({ email: 'test@test.com', password: 'password' })}>Login</button>
-      <button onClick={() => logout()}>Logout</button>
+      <button onClick={() => login({ email: 'test@test.com', password: 'password' })}>
+        Login
+      </button>
+      <button onClick={() => logout()}>
+        Logout
+      </button>
     </div>
   );
 };
@@ -28,7 +32,12 @@ describe('🛡️ AuthContext Logic', () => {
   });
 
   it('✅ Initialise avec guest et sans token', () => {
-    render(<AuthProvider><TestComponent /></AuthProvider>);
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
     expect(screen.getByTestId('user').textContent).toBe('guest');
     expect(screen.getByTestId('token').textContent).toBe('no-token');
   });
@@ -43,37 +52,39 @@ describe('🛡️ AuthContext Logic', () => {
       })
     });
 
-    render(<AuthProvider><TestComponent /></AuthProvider>);
-    
-    // ✅ Utilisation de act pour stabiliser les mises à jour d'état React 19
-    await act(async () => {
-      screen.getByText('Login').click();
-    });
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
 
-    // On attend uniquement la mise à jour asynchrone du storage
+    // Clic direct, sans act()
+    screen.getByText('Login').click();
+
+    // Attente de la mise à jour asynchrone
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBe('fake-access-token');
     });
-    
-    // Vérification finale du DOM
+
     expect(screen.getByTestId('user').textContent).toBe('Bakary');
   });
 
   it('✅ Doit nettoyer le localStorage au logout', async () => {
     localStorage.setItem('accessToken', 'token-a-effacer');
-    
-    render(<AuthProvider><TestComponent /></AuthProvider>);
-    
-    // ✅ On enveloppe le clic de déconnexion
-    await act(async () => {
-      screen.getByText('Logout').click();
-    });
 
-    // On attend que le storage soit vidé
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    // Clic direct
+    screen.getByText('Logout').click();
+
     await waitFor(() => {
       expect(localStorage.getItem('accessToken')).toBeNull();
     });
-    
+
     expect(screen.getByTestId('user').textContent).toBe('guest');
   });
 });
