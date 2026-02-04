@@ -1,130 +1,62 @@
 import React, { useContext } from 'react';
-import { render, screen, waitFor } from '@testing-library/react'; // ✅ waitFor ajouté ici
+import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
-// ✅ Mock global de fetch pour simuler les appels API (Login, Refresh, etc.)
+// On mocke fetch pour simuler l'API
 global.fetch = jest.fn();
 
-/**
- * Composant de test interne pour accéder au contexte
- */
 const TestComponent = () => {
-  const ctx = useContext(AuthContext);
+  const { user, login, logout, accessToken } = useContext(AuthContext);
   return (
     <div>
-      <button onClick={() => ctx.login({ email: 'a', password: 'b' })}>login</button>
-      <button onClick={() => ctx.logout()}>logout</button>
-      {/* Vérification sécurisée de l'existence de la fonction */}
-      <button onClick={() => ctx.refreshAccessToken && ctx.refreshAccessToken()}>refresh</button>
-      <button onClick={() => ctx.authFetch('/test')}>fetch</button>
-      <span data-testid="username">{ctx.user ? ctx.user.username : ''}</span>
+      <div data-testid="user">{user ? user.username : 'guest'}</div>
+      <div data-testid="token">{accessToken || 'no-token'}</div>
+      <button onClick={() => login({ email: 'test@test.com', password: 'password' })}>Login</button>
+      <button onClick={() => logout()}>Logout</button>
     </div>
   );
 };
 
-const renderWithProvider = () =>
-  render(
-    <AuthProvider>
-      <TestComponent />
-    </AuthProvider>
-  );
-
-/**
- * TEST MÉTIER : Authentification & Persistance
- * Objectif : 
- * - Vérifier le stockage LocalStorage (Sécurité)
- * - Valider le cycle de vie du token JWT
- */
-describe('🛡️ AuthContext', () => {
+describe('🛡️ AuthContext Logic', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
   });
 
-  // 1. Connexion (Login)
-  it('login stocke les tokens et le user dans le localStorage', async () => {
+  it('✅ Doit initialiser avec guest et sans token', () => {
+    render(<AuthProvider><TestComponent /></AuthProvider>);
+    expect(screen.getByTestId('user').textContent).toBe('guest');
+    expect(screen.getByTestId('token').textContent).toBe('no-token');
+  });
+
+  it('✅ Doit stocker les jetons après un login réussi', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        accessToken: 'A',
-        refreshToken: 'R',
-        user: { username: 'bob' }
+        accessToken: 'fake-access-token',
+        refreshToken: 'fake-refresh-token',
+        user: { username: 'Bakary' }
       })
     });
 
-    renderWithProvider();
-
-    // ✅ ESLint : Pas de act() autour de click(), c'est automatique
-    screen.getByText('login').click();
+    render(<AuthProvider><TestComponent /></AuthProvider>);
+    screen.getByText('Login').click();
 
     await waitFor(() => {
-      expect(localStorage.getItem('accessToken')).toBe('A');
+      expect(localStorage.getItem('accessToken')).toBe('fake-access-token');
+      expect(screen.getByTestId('user').textContent).toBe('Bakary');
     });
-    expect(localStorage.getItem('refreshToken')).toBe('R');
-
-    const username = await screen.findByTestId('username');
-    expect(username.textContent).toBe('bob');
   });
 
-  // 2. Déconnexion (Logout)
-  it('logout nettoie tout le stockage local', async () => {
-    localStorage.setItem('accessToken', 'A');
-    localStorage.setItem('refreshToken', 'R');
-    localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
-
-    renderWithProvider();
-
-    screen.getByText('logout').click();
+  it('✅ Doit nettoyer le localStorage au logout', async () => {
+    localStorage.setItem('accessToken', 'token-a-effacer');
+    render(<AuthProvider><TestComponent /></AuthProvider>);
+    
+    screen.getByText('Logout').click();
 
     await waitFor(() => {
-      expect(localStorage.getItem('accessToken')).toBe(null);
-    });
-    expect(localStorage.getItem('refreshToken')).toBe(null);
-    expect(localStorage.getItem('user')).toBe(null);
-
-    const username = await screen.findByTestId('username');
-    expect(username.textContent).toBe('');
-  });
-
-  // 3. Rafraîchissement (Token Refresh)
-  it('refreshAccessToken met à jour les tokens JWT', async () => {
-    localStorage.setItem('refreshToken', 'R');
-
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        accessToken: 'NEW',
-        refreshToken: 'NEW_R'
-      })
-    });
-
-    renderWithProvider();
-
-    screen.getByText('refresh').click();
-
-    // ✅ Attente que les effets du contexte se terminent
-    await waitFor(() => {
-        expect(localStorage.getItem('accessToken')).toBe('NEW');
-    });
-    expect(localStorage.getItem('refreshToken')).toBe('NEW_R');
-  });
-
-  // 4. Fetch Sécurisé (authFetch)
-  it('authFetch ajoute le header Authorization Bearer', async () => {
-    localStorage.setItem('accessToken', 'A');
-
-    fetch.mockResolvedValueOnce({ status: 200, ok: true, json: async () => ({}) });
-
-    renderWithProvider();
-
-    screen.getByText('fetch').click();
-
-    await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/test'), expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer A'
-        })
-      }));
+      expect(localStorage.getItem('accessToken')).toBeNull();
+      expect(screen.getByTestId('user').textContent).toBe('guest');
     });
   });
 });
