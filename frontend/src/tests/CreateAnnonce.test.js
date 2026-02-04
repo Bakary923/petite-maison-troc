@@ -1,7 +1,3 @@
-// ✔ Correction ESLint : suppression de la variable url inutilisée
-// ✔ Correction ESLint : un seul expect dans waitFor
-// ✔ Les autres expect sont en dehors du waitFor
-
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';

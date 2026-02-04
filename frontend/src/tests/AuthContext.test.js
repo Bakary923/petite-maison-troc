@@ -1,6 +1,3 @@
-// ✔ Tous les ctx → utils pour respecter la règle ESLint
-// ✔ Aucun changement de logique
-
 import React from 'react';
 import { render, act } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
@@ -42,26 +39,20 @@ describe('🔐 AuthContext', () => {
     return contextValue;
   };
 
-  // ============================================================
-  // 1. Initialisation sécurisée
-  // ============================================================
   it('initialise correctement les tokens depuis localStorage', () => {
     localStorage.setItem('accessToken', 'abc123');
     localStorage.setItem('refreshToken', 'ref123');
     localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
 
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     expect(utils.accessToken).toBe('abc123');
     expect(utils.refreshToken).toBe('ref123');
     expect(utils.user.username).toBe('bob');
   });
 
-  // ============================================================
-  // 2. LOGIN
-  // ============================================================
   it('login stocke les tokens et le user', async () => {
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({
       ok: true,
@@ -82,7 +73,7 @@ describe('🔐 AuthContext', () => {
   });
 
   it('login échoue si credentials invalides', async () => {
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({
       ok: false,
@@ -94,11 +85,8 @@ describe('🔐 AuthContext', () => {
     ).rejects.toThrow('Invalid');
   });
 
-  // ============================================================
-  // 3. REGISTER
-  // ============================================================
   it('register stocke les tokens et le user', async () => {
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({
       ok: true,
@@ -118,15 +106,12 @@ describe('🔐 AuthContext', () => {
     expect(JSON.parse(localStorage.getItem('user')).username).toBe('newUser');
   });
 
-  // ============================================================
-  // 4. LOGOUT
-  // ============================================================
   it('logout nettoie les tokens et le user', async () => {
     localStorage.setItem('accessToken', 'abc');
     localStorage.setItem('refreshToken', 'ref');
     localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
 
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({ ok: true });
 
@@ -140,13 +125,10 @@ describe('🔐 AuthContext', () => {
     expect(utils.user).toBe(null);
   });
 
-  // ============================================================
-  // 5. REFRESH TOKEN
-  // ============================================================
   it('refreshAccessToken met à jour les tokens', async () => {
     localStorage.setItem('refreshToken', 'ref123');
 
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({
       ok: true,
@@ -169,7 +151,7 @@ describe('🔐 AuthContext', () => {
   it('refreshAccessToken appelle logout si refresh échoue', async () => {
     localStorage.setItem('refreshToken', 'ref123');
 
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({ ok: false });
 
@@ -180,13 +162,10 @@ describe('🔐 AuthContext', () => {
     expect(utils.user).toBe(null);
   });
 
-  // ============================================================
-  // 6. AUTHFETCH (avec refresh automatique)
-  // ============================================================
   it('authFetch ajoute le header Authorization', async () => {
     localStorage.setItem('accessToken', 'abc');
 
-    const utils = renderWithProvider(); // ← correction ESLint
+    const utils = renderWithProvider(); // ← correction
 
     fetch.mockResolvedValueOnce({ status: 200 });
 
