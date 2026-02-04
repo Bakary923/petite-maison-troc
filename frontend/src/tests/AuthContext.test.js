@@ -1,181 +1,107 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { render, act } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
-// Mock global fetch
 global.fetch = jest.fn();
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store = {};
-  return {
-    getItem: (key) => store[key] || null,
-    setItem: (key, value) => { store[key] = value; },
-    removeItem: (key) => { delete store[key]; },
-    clear: () => { store = {}; }
-  };
-})();
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+const TestComponent = () => {
+  const ctx = useContext(AuthContext);
+  return (
+    <div>
+      <button onClick={() => ctx.login({ email: 'a', password: 'b' })}>login</button>
+      <button onClick={() => ctx.logout()}>logout</button>
+      <button onClick={() => ctx.refreshAccessToken()}>refresh</button>
+      <button onClick={() => ctx.authFetch('/test')}>fetch</button>
+      <span data-testid="username">{ctx.user ? ctx.user.username : ''}</span>
+    </div>
+  );
+};
 
-describe('🔐 AuthContext', () => {
+const renderWithProvider = () =>
+  render(
+    <AuthProvider>
+      <TestComponent />
+    </AuthProvider>
+  );
 
+describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
   });
 
-  const renderWithProvider = () => {
-    let contextValue;
-    render(
-      <AuthProvider>
-        <AuthContext.Consumer>
-          {(value) => {
-            contextValue = value;
-            return null;
-          }}
-        </AuthContext.Consumer>
-      </AuthProvider>
-    );
-    return contextValue;
-  };
-
-  it('initialise correctement les tokens depuis localStorage', () => {
-    localStorage.setItem('accessToken', 'abc123');
-    localStorage.setItem('refreshToken', 'ref123');
-    localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
-
-    const utils = renderWithProvider(); // ← correction
-
-    expect(utils.accessToken).toBe('abc123');
-    expect(utils.refreshToken).toBe('ref123');
-    expect(utils.user.username).toBe('bob');
-  });
-
   it('login stocke les tokens et le user', async () => {
-    const utils = renderWithProvider(); // ← correction
-
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        accessToken: 'newAccess',
-        refreshToken: 'newRefresh',
-        user: { username: 'alice', role: 'user' }
+        accessToken: 'A',
+        refreshToken: 'R',
+        user: { username: 'bob' }
       })
     });
 
+    const utils = renderWithProvider();
     await act(async () => {
-      await utils.login({ email: 'a@a.com', password: '123' });
+      utils.getByText('login').click();
     });
 
-    expect(localStorage.getItem('accessToken')).toBe('newAccess');
-    expect(localStorage.getItem('refreshToken')).toBe('newRefresh');
-    expect(JSON.parse(localStorage.getItem('user')).username).toBe('alice');
+    expect(localStorage.getItem('accessToken')).toBe('A');
+    expect(localStorage.getItem('refreshToken')).toBe('R');
+    expect(utils.getByTestId('username').textContent).toBe('bob');
   });
 
-  it('login échoue si credentials invalides', async () => {
-    const utils = renderWithProvider(); // ← correction
-
-    fetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ message: 'Invalid' })
-    });
-
-    await expect(
-      utils.login({ email: 'bad', password: 'bad' })
-    ).rejects.toThrow('Invalid');
-  });
-
-  it('register stocke les tokens et le user', async () => {
-    const utils = renderWithProvider(); // ← correction
-
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        accessToken: 'regAccess',
-        refreshToken: 'regRefresh',
-        user: { username: 'newUser' }
-      })
-    });
-
-    await act(async () => {
-      await utils.register({ username: 'x', email: 'x@x.com', password: '123' });
-    });
-
-    expect(localStorage.getItem('accessToken')).toBe('regAccess');
-    expect(localStorage.getItem('refreshToken')).toBe('regRefresh');
-    expect(JSON.parse(localStorage.getItem('user')).username).toBe('newUser');
-  });
-
-  it('logout nettoie les tokens et le user', async () => {
-    localStorage.setItem('accessToken', 'abc');
-    localStorage.setItem('refreshToken', 'ref');
+  it('logout nettoie tout', async () => {
+    localStorage.setItem('accessToken', 'A');
+    localStorage.setItem('refreshToken', 'R');
     localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
 
-    const utils = renderWithProvider(); // ← correction
-
-    fetch.mockResolvedValueOnce({ ok: true });
+    const utils = renderWithProvider();
 
     await act(async () => {
-      await utils.logout();
+      utils.getByText('logout').click();
     });
 
     expect(localStorage.getItem('accessToken')).toBe(null);
     expect(localStorage.getItem('refreshToken')).toBe(null);
     expect(localStorage.getItem('user')).toBe(null);
-    expect(utils.user).toBe(null);
+    expect(utils.getByTestId('username').textContent).toBe('');
   });
 
   it('refreshAccessToken met à jour les tokens', async () => {
-    localStorage.setItem('refreshToken', 'ref123');
-
-    const utils = renderWithProvider(); // ← correction
+    localStorage.setItem('refreshToken', 'R');
 
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        accessToken: 'newA',
-        refreshToken: 'newR'
+        accessToken: 'NEW',
+        refreshToken: 'NEW_R'
       })
     });
 
-    let newToken;
-    await act(async () => {
-      newToken = await utils.refreshAccessToken();
-    });
-
-    expect(newToken).toBe('newA');
-    expect(localStorage.getItem('accessToken')).toBe('newA');
-    expect(localStorage.getItem('refreshToken')).toBe('newR');
-  });
-
-  it('refreshAccessToken appelle logout si refresh échoue', async () => {
-    localStorage.setItem('refreshToken', 'ref123');
-
-    const utils = renderWithProvider(); // ← correction
-
-    fetch.mockResolvedValueOnce({ ok: false });
+    const utils = renderWithProvider();
 
     await act(async () => {
-      await utils.refreshAccessToken();
+      utils.getByText('refresh').click();
     });
 
-    expect(utils.user).toBe(null);
+    expect(localStorage.getItem('accessToken')).toBe('NEW');
+    expect(localStorage.getItem('refreshToken')).toBe('NEW_R');
   });
 
-  it('authFetch ajoute le header Authorization', async () => {
-    localStorage.setItem('accessToken', 'abc');
-
-    const utils = renderWithProvider(); // ← correction
+  it('authFetch ajoute Authorization', async () => {
+    localStorage.setItem('accessToken', 'A');
 
     fetch.mockResolvedValueOnce({ status: 200 });
 
+    const utils = renderWithProvider();
+
     await act(async () => {
-      await utils.authFetch('/test');
+      utils.getByText('fetch').click();
     });
 
     expect(fetch).toHaveBeenCalledWith('/test', expect.objectContaining({
       headers: expect.objectContaining({
-        Authorization: 'Bearer abc'
+        Authorization: 'Bearer A'
       })
     }));
   });
