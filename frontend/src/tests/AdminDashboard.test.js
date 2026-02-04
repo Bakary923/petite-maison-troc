@@ -1,8 +1,9 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import AdminDashboard from '../pages/AdminDashboard';
 import { AuthContext } from '../contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
 
+// Mock AdminCard
 jest.mock('../components/AdminCard.js', () => ({ annonce, onValidate, onReject, onDelete }) => (
   <div data-testid="admin-card">
     <p>{annonce.titre}</p>
@@ -12,6 +13,7 @@ jest.mock('../components/AdminCard.js', () => ({ annonce, onValidate, onReject, 
   </div>
 ));
 
+// Mock navigate
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -44,7 +46,7 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/chargement/i)).toBeTruthy();
   });
 
-  it('charge annonces', async () => {
+  it('charge et affiche les annonces', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ annonces: [{ id: 1, titre: 'A' }] })
@@ -52,12 +54,33 @@ describe('AdminDashboard', () => {
 
     renderWithContext({ username: 'admin', role: 'admin' });
 
-    await waitFor(() => {
-      expect(screen.getByTestId('admin-card')).toBeTruthy();
-    });
+    const card = await screen.findByTestId('admin-card'); // ✔ correction ESLint
+    expect(card).toBeTruthy();
   });
 
-  it('validate supprime annonce', async () => {
+  it('affiche une erreur si authFetch échoue', async () => {
+    mockAuthFetch.mockResolvedValueOnce({ ok: false });
+
+    renderWithContext({ username: 'admin', role: 'admin' });
+
+    const error = await screen.findByText(/erreur lors du chargement/i);
+    expect(error).toBeTruthy();
+  });
+
+  it('change le filtre et recharge les annonces', async () => {
+    mockAuthFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ annonces: [] })
+    });
+
+    renderWithContext({ username: 'admin', role: 'admin' });
+
+    fireEvent.click(screen.getByText(/validées/i));
+
+    expect(mockAuthFetch).toHaveBeenCalled();
+  });
+
+  it('supprime une annonce après validation', async () => {
     mockAuthFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -67,12 +90,46 @@ describe('AdminDashboard', () => {
 
     renderWithContext({ username: 'admin', role: 'admin' });
 
-    await waitFor(() => screen.getByTestId('admin-card'));
+    await screen.findByTestId('admin-card');
 
     fireEvent.click(screen.getByText('validate'));
 
-    await waitFor(() => {
-      expect(screen.queryByTestId('admin-card')).toBeNull();
-    });
+    expect(screen.queryByTestId('admin-card')).toBeNull();
+  });
+
+  it('supprime une annonce après rejet', async () => {
+    mockAuthFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ annonces: [{ id: 1, titre: 'A' }] })
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    renderWithContext({ username: 'admin', role: 'admin' });
+
+    await screen.findByTestId('admin-card');
+
+    fireEvent.click(screen.getByText('reject'));
+
+    expect(screen.queryByTestId('admin-card')).toBeNull();
+  });
+
+  it('supprime une annonce après suppression', async () => {
+    window.confirm = jest.fn(() => true);
+
+    mockAuthFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ annonces: [{ id: 1, titre: 'A' }] })
+      })
+      .mockResolvedValueOnce({ ok: true });
+
+    renderWithContext({ username: 'admin', role: 'admin' });
+
+    await screen.findByTestId('admin-card');
+
+    fireEvent.click(screen.getByText('delete'));
+
+    expect(screen.queryByTestId('admin-card')).toBeNull();
   });
 });
