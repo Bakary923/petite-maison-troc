@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useCallback } from 'react';
 import { API_BASE_URL } from '../config';
 
 export const AuthContext = createContext();
@@ -27,10 +27,10 @@ export const AuthProvider = ({ children }) => {
 
     const data = await res.json();
 
-    // Regroupement des mises à jour pour éviter les warnings React 19
-    setAccessToken(data.accessToken);
-    setRefreshToken(data.refreshToken);
-    setUser(data.user);
+    // Mise à jour groupée (React 19 friendly)
+    setAccessToken(() => data.accessToken);
+    setRefreshToken(() => data.refreshToken);
+    setUser(() => data.user);
 
     localStorage.setItem('accessToken', data.accessToken);
     localStorage.setItem('refreshToken', data.refreshToken);
@@ -47,15 +47,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
 
-    // ⚠️ IMPORTANT : regrouper les setState pour éviter les warnings act()
-    setAccessToken(null);
-    setRefreshToken(null);
-    setUser(null);
+    // Mise à jour groupée (évite les warnings act())
+    setAccessToken(() => null);
+    setRefreshToken(() => null);
+    setUser(() => null);
   }, []);
 
   /**
    * ===========================
-   * AUTHFETCH (wrapper sécurisé)
+   * AUTHFETCH
    * ===========================
    */
   const authFetch = useCallback(
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
 
       const res = await fetch(url, { ...options, headers });
 
-      // Gestion du token expiré
+      // Token expiré → tentative de refresh
       if (res.status === 401 && refreshToken) {
         const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
           method: 'POST',
@@ -79,11 +79,9 @@ export const AuthProvider = ({ children }) => {
         if (refreshRes.ok) {
           const data = await refreshRes.json();
 
-          // Mise à jour groupée (React 19 friendly)
-          setAccessToken(data.accessToken);
+          setAccessToken(() => data.accessToken);
           localStorage.setItem('accessToken', data.accessToken);
 
-          // Rejouer la requête initiale
           return authFetch(url, options);
         } else {
           logout();

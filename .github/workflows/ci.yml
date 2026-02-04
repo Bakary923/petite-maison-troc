@@ -44,7 +44,7 @@ jobs:
           PGPASSWORD=password psql -h localhost -U user -d petite_maison_db -f backend/api-service/init.sql
 
       # ÉTAPE 2 & 3 : Install & Linting Backend
-      # Justification 2 : Assure la reproductibilité (exigence de Fiabilité).
+      # Justification 2 : Assure la reproductibilité (exigience de Fiabilité).
       # Justification 3 : Vérifie la Maintenabilité (ESLint).
       - name: 2, 3. Install & Linting Backend
         run: |
@@ -94,19 +94,17 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       # ÉTAPE 2 & 3 : Install & Linting Frontend
-      # Justification 2 : Assure la reproductibilité (exigence de Fiabilité).
-      # Justification 3 : Vérifie la Maintenabilité (normes de codage React).
-      # ✅ FIX : npm install complet pour garantir la présence de react-router-dom 7
+      # Justification 2 : Assure la reproductibilité (Fiabilité).
+      # Justification 3 : Vérifie la Maintenabilité (normes React).
       - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
-          npm install --legacy-peer-deps
+          npm ci --legacy-peer-deps
           npm run lint --if-present
 
       # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
       # Justification 4 : Valide la Capacité fonctionnelle (Jest).
       # Justification 5 : Vérifie la fonctionnalité métier (Contexts & Forms).
-      # ✅ FIX : Ajout du flag --ci et --maxWorkers pour la stabilité sur Ubuntu
       - name: 4, 5. Tests Unitaires & Intégration Frontend
         run: |
           cd frontend
@@ -125,16 +123,17 @@ jobs:
   # ==========================================================
   quality-and-delivery:
     name: Qualité, Build & Sécurité
-    needs: [backend-validation, frontend-validation] 
+    needs: [backend-validation, frontend-validation]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 
+          fetch-depth: 0
 
       - name: Download Reports
         uses: actions/download-artifact@v4
@@ -152,7 +151,7 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.javascript.lcov.reportPaths=reports/backend-coverage/lcov.info,reports/frontend-coverage/lcov.info
-            -Dsonar.coverage.exclusions=backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js
+            -Dsonar.coverage.exclusions=backend/api-service/src/app.js,frontend/src/index.js,frontend/src/App.js,frontend/src/reportWebVitals.js,frontend/src/setupTests.js,frontend/src/config.js,frontend/src/__mocks__/**
 
       # ÉTAPE 7 : Build Image (Docker)
       # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
@@ -167,7 +166,7 @@ jobs:
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
       # ÉTAPE 8 : Scan d'image (Trivy)
-      # Justification : Répond à la consigne de "Scan de vulnérabilités" des conteneurs.
+      # Justification : Répond à la consigne de "Scan de vulnérabilités".
       - name: 8. Scan Images with Trivy
         run: |
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
