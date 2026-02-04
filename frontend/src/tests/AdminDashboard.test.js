@@ -1,27 +1,41 @@
+// ------------------------------------------------------------
+// 📌 IMPORTS (doivent TOUJOURS être en haut du fichier)
+// ------------------------------------------------------------
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
 
-// --- IMPORTANT ---
-// On mocke AdminDashboard AVANT de l'importer
+// ------------------------------------------------------------
+// 📌 MOCK COMPLET DES STYLES AVANT L’IMPORT DU COMPOSANT
+// ------------------------------------------------------------
+// Ton AdminDashboard utilise des styles inline dynamiques.
+// React 18 déclenche des warnings et casse les tests.
+// On neutralise donc TOUT l’objet styles uniquement pour les tests.
 jest.mock('../pages/AdminDashboard', () => {
   const original = jest.requireActual('../pages/AdminDashboard');
   return {
     __esModule: true,
     ...original,
-    styles: {} // styles neutralisés
+    styles: {} // ⛔ styles désactivés → plus de conflits border/borderColor
   };
 });
 
-// Maintenant on peut importer le composant
+// ------------------------------------------------------------
+// 📌 IMPORT DU COMPOSANT APRÈS LE MOCK
+// ------------------------------------------------------------
 import AdminDashboard from '../pages/AdminDashboard';
 
-// Mock simple d’AdminCard
+// ------------------------------------------------------------
+// 📌 MOCK AdminCard (évite de rendre le vrai composant)
+// ------------------------------------------------------------
 jest.mock('../components/AdminCard', () => ({ annonce }) => (
   <div data-testid="admin-card">{annonce.titre}</div>
 ));
 
+// ------------------------------------------------------------
+// 📌 MOCK authFetch
+// ------------------------------------------------------------
 const mockAuthFetch = jest.fn();
 
 describe('AdminDashboard', () => {
@@ -29,6 +43,9 @@ describe('AdminDashboard', () => {
     jest.clearAllMocks();
   });
 
+  // ------------------------------------------------------------
+  // 1️⃣ Accès refusé si l’utilisateur n’est pas admin
+  // ------------------------------------------------------------
   it('affiche accès refusé si user non admin', () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
@@ -39,6 +56,9 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
+  // ------------------------------------------------------------
+  // 2️⃣ Chargement et affichage des annonces admin
+  // ------------------------------------------------------------
   it('charge et affiche les annonces admin', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
@@ -54,10 +74,14 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
+    // findByText attend automatiquement la fin du chargement
     expect(await screen.findByText(/annonce a/i)).toBeInTheDocument();
     expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
   });
 
+  // ------------------------------------------------------------
+  // 3️⃣ Changement de filtre (pending → validated → rejected → all)
+  // ------------------------------------------------------------
   it('relance authFetch quand on change de filtre', async () => {
     mockAuthFetch.mockResolvedValue({
       ok: true,
@@ -70,9 +94,10 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Attendre que les boutons soient visibles
+    // On attend que les boutons soient visibles
     await screen.findByText(/en attente/i);
 
+    // Premier appel automatique
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
     // VALIDÉES
@@ -88,6 +113,9 @@ describe('AdminDashboard', () => {
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(4));
   });
 
+  // ------------------------------------------------------------
+  // 4️⃣ État vide (aucune annonce)
+  // ------------------------------------------------------------
   it('affiche un état vide si aucune annonce', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
