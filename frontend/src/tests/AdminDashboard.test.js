@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// Mock simple d’AdminCard
+// Mock simple d’AdminCard (évite de rendre le vrai composant)
 jest.mock('../components/AdminCard', () => ({ annonce }) => (
   <div data-testid="admin-card">{annonce.titre}</div>
 ));
@@ -60,32 +61,28 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
+    const user = userEvent.setup();
+
     // Attendre que les boutons soient visibles
     const btnPending = await screen.findByText(/en attente/i);
     const btnValidated = await screen.findByText(/validées/i);
     const btnRejected = await screen.findByText(/rejetées/i);
     const btnAll = await screen.findByText(/toutes/i);
 
-    // Premier appel
+    // Premier appel automatique
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
     // Validées
-    fireEvent.click(btnValidated);
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(2)
-    );
+    await user.click(btnValidated);
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
 
     // Rejetées
-    fireEvent.click(btnRejected);
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(3)
-    );
+    await user.click(btnRejected);
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
 
     // Toutes
-    fireEvent.click(btnAll);
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(4)
-    );
+    await user.click(btnAll);
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(4));
   });
 
   // --- État vide ---
