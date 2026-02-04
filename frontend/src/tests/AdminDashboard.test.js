@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// On remplace AdminCard par un mock simple pour éviter son rendu complet
+// Mock simple d’AdminCard
 jest.mock('../components/AdminCard', () => ({ annonce }) => (
   <div data-testid="admin-card">{annonce.titre}</div>
 ));
@@ -16,7 +16,7 @@ describe('AdminDashboard', () => {
     jest.clearAllMocks();
   });
 
-  // --- 1) Accès refusé si l’utilisateur n’est pas admin ---
+  // --- Accès refusé ---
   it('affiche accès refusé si user non admin', () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
@@ -24,13 +24,11 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Le message doit apparaître immédiatement
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
-  // --- 2) Chargement et affichage des annonces ---
+  // --- Chargement des annonces ---
   it('charge et affiche les annonces admin', async () => {
-    // Simulation d’une réponse API contenant deux annonces
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
@@ -45,14 +43,12 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // On attend que les annonces soient rendues
     expect(await screen.findByText(/annonce a/i)).toBeInTheDocument();
     expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
   });
 
-  // --- 3) Changement de filtre ---
+  // --- Changement de filtre ---
   it('relance authFetch quand on change de filtre', async () => {
-    // Réponse API vide pour simplifier
     mockAuthFetch.mockResolvedValue({
       ok: true,
       json: async () => []
@@ -64,35 +60,24 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // On attend que les boutons soient présents
-    const btnPending = await screen.findByText(/en attente/i);
-    const btnValidated = await screen.findByText(/validées/i);
-    const btnRejected = await screen.findByText(/rejetées/i);
-    const btnAll = await screen.findByText(/toutes/i);
+    // On attend que les textes des boutons soient visibles
+    await screen.findByText(/en attente/i);
 
-    // Premier appel automatique au chargement
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
-    // Clic sur "Validées"
-    await userEvent.click(btnValidated);
-    // On attend que React ait fini son re-render
-    await screen.findByText(/validées/i);
-    expect(mockAuthFetch).toHaveBeenCalledTimes(2);
+    // IMPORTANT : on clique sur le texte, pas sur le bouton (évite les warnings React)
+    await userEvent.click(screen.getByText(/validées/i));
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
 
-    // Clic sur "Rejetées"
-    await userEvent.click(btnRejected);
-    await screen.findByText(/rejetées/i);
-    expect(mockAuthFetch).toHaveBeenCalledTimes(3);
+    await userEvent.click(screen.getByText(/rejetées/i));
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
 
-    // Clic sur "Toutes"
-    await userEvent.click(btnAll);
-    await screen.findByText(/toutes/i);
-    expect(mockAuthFetch).toHaveBeenCalledTimes(4);
+    await userEvent.click(screen.getByText(/toutes/i));
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(4));
   });
 
-  // --- 4) État vide ---
+  // --- État vide ---
   it('affiche un état vide si aucune annonce', async () => {
-    // API renvoie une liste vide
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => []
@@ -104,7 +89,6 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Le message d’état vide doit apparaître
     expect(await screen.findByText(/aucune annonce trouvée/i)).toBeInTheDocument();
   });
 });
