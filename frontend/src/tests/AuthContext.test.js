@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { render, act } from '@testing-library/react';
+import { render, act, screen } from '@testing-library/react';
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
 global.fetch = jest.fn();
@@ -40,14 +40,17 @@ describe('AuthContext', () => {
       })
     });
 
-    const utils = renderWithProvider();
+    renderWithProvider();
+
     await act(async () => {
-      utils.getByText('login').click();
+      screen.getByText('login').click();
     });
 
     expect(localStorage.getItem('accessToken')).toBe('A');
     expect(localStorage.getItem('refreshToken')).toBe('R');
-    expect(utils.getByTestId('username').textContent).toBe('bob');
+
+    const username = await screen.findByTestId('username');
+    expect(username.textContent).toBe('bob');
   });
 
   it('logout nettoie tout', async () => {
@@ -55,16 +58,18 @@ describe('AuthContext', () => {
     localStorage.setItem('refreshToken', 'R');
     localStorage.setItem('user', JSON.stringify({ username: 'bob' }));
 
-    const utils = renderWithProvider();
+    renderWithProvider();
 
     await act(async () => {
-      utils.getByText('logout').click();
+      screen.getByText('logout').click();
     });
 
     expect(localStorage.getItem('accessToken')).toBe(null);
     expect(localStorage.getItem('refreshToken')).toBe(null);
     expect(localStorage.getItem('user')).toBe(null);
-    expect(utils.getByTestId('username').textContent).toBe('');
+
+    const username = await screen.findByTestId('username');
+    expect(username.textContent).toBe('');
   });
 
   it('refreshAccessToken met à jour les tokens', async () => {
@@ -78,10 +83,10 @@ describe('AuthContext', () => {
       })
     });
 
-    const utils = renderWithProvider();
+    renderWithProvider();
 
     await act(async () => {
-      utils.getByText('refresh').click();
+      screen.getByText('refresh').click();
     });
 
     expect(localStorage.getItem('accessToken')).toBe('NEW');
@@ -93,10 +98,10 @@ describe('AuthContext', () => {
 
     fetch.mockResolvedValueOnce({ status: 200 });
 
-    const utils = renderWithProvider();
+    renderWithProvider();
 
     await act(async () => {
-      utils.getByText('fetch').click();
+      screen.getByText('fetch').click();
     });
 
     expect(fetch).toHaveBeenCalledWith('/test', expect.objectContaining({
