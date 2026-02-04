@@ -22,7 +22,7 @@ describe('🧭 Navbar', () => {
   });
 
   // ---------------------------------------------------------
-  // 1) Navbar quand l'utilisateur n'est PAS connecté
+  // 1) Navbar quand user = null
   // ---------------------------------------------------------
   it('affiche Connexion et Créer un compte quand user = null', () => {
     render(
@@ -46,7 +46,6 @@ describe('🧭 Navbar', () => {
     );
 
     fireEvent.click(screen.getByText(/connexion/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
@@ -61,12 +60,11 @@ describe('🧭 Navbar', () => {
     );
 
     fireEvent.click(screen.getByText(/créer un compte/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/signup');
   });
 
   // ---------------------------------------------------------
-  // 4) Navbar quand l'utilisateur est connecté (non admin)
+  // 4) Navbar quand user connecté
   // ---------------------------------------------------------
   it('affiche le nom de l’utilisateur et le bouton déconnexion', () => {
     render(
@@ -96,7 +94,7 @@ describe('🧭 Navbar', () => {
   });
 
   // ---------------------------------------------------------
-  // 6) Affichage du bouton Admin si user.role === "admin"
+  // 6) Affichage du bouton Admin (user.role === "admin")
   // ---------------------------------------------------------
   it('affiche le bouton Admin pour un utilisateur admin', () => {
     render(
@@ -105,11 +103,13 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
-    expect(screen.getByText(/admin/i)).toBeInTheDocument();
+    // 🎯 On cible UNIQUEMENT le bouton Admin, pas "Bonsoir, Admin"
+    const adminButton = screen.getByRole('button', { name: /admin/i });
+    expect(adminButton).toBeInTheDocument();
   });
 
   // ---------------------------------------------------------
-  // 7) Navigation vers /admin
+  // 7) Navigation vers /admin via le bouton Admin
   // ---------------------------------------------------------
   it('redirige vers /admin quand on clique sur le bouton Admin', () => {
     render(
@@ -118,7 +118,10 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
-    fireEvent.click(screen.getByText(/admin/i));
+    // 🎯 Même logique : on cible le bouton, pas le texte dans "Bonsoir, Admin"
+    const adminButton = screen.getByRole('button', { name: /admin/i });
+
+    fireEvent.click(adminButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/admin');
   });
@@ -134,12 +137,11 @@ describe('🧭 Navbar', () => {
     );
 
     fireEvent.click(screen.getByText(/annonces/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/annonces');
   });
 
   // ---------------------------------------------------------
-  // 9) Navigation vers / (logo)
+  // 9) Navigation vers / via le logo
   // ---------------------------------------------------------
   it('redirige vers / quand on clique sur le logo', () => {
     render(
@@ -149,7 +151,6 @@ describe('🧭 Navbar', () => {
     );
 
     fireEvent.click(screen.getByText(/la petite maison épouvante/i));
-
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 });
