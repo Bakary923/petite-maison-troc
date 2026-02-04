@@ -1,3 +1,7 @@
+// ✔ Correction ESLint : suppression de la variable url inutilisée
+// ✔ Correction ESLint : un seul expect dans waitFor
+// ✔ Les autres expect sont en dehors du waitFor
+
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
@@ -21,7 +25,6 @@ describe('📦 Page CreateAnnonce', () => {
 
     renderCreate();
 
-    // Remplir les champs texte
     fireEvent.change(
       screen.getByPlaceholderText('Ex: Vélo bleu en bon état'),
       { target: { value: 'Vélo de course' } }
@@ -32,25 +35,26 @@ describe('📦 Page CreateAnnonce', () => {
       { target: { value: 'Superbe état' } }
     );
 
-    // Ajouter une image
     const file = new File(['image'], 'velo.png', { type: 'image/png' });
-    const input = screen.getByLabelText(/Cliquez pour sélectionner une image/);
-    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(
+      screen.getByLabelText(/Cliquez pour sélectionner une image/),
+      { target: { files: [file] } }
+    );
 
-    // Soumettre
     fireEvent.click(screen.getByText(/publier l'annonce/i));
 
+    // ✔ Un seul expect dans waitFor
     await waitFor(() => {
-      const [url, options] = mockAuthFetch.mock.calls[0];
-      const formData = options.body;
-
-      // Vérifier que c'est bien un FormData
-      expect(formData instanceof FormData).toBe(true);
-
-      // Vérifier les champs envoyés
-      expect(formData.get('titre')).toBe('Vélo de course');
-      expect(formData.get('description')).toBe('Superbe état');
-      expect(formData.get('image')).toBe(file);
+      const [, options] = mockAuthFetch.mock.calls[0];
+      expect(options.body instanceof FormData).toBe(true);
     });
+
+    // ✔ Les autres expect en dehors
+    const [, options] = mockAuthFetch.mock.calls[0];
+    const formData = options.body;
+
+    expect(formData.get('titre')).toBe('Vélo de course');
+    expect(formData.get('description')).toBe('Superbe état');
+    expect(formData.get('image')).toBe(file);
   });
 });
