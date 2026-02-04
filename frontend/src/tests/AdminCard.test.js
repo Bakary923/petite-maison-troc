@@ -115,7 +115,7 @@ describe('🛡️ Composant AdminCard', () => {
       <AdminCard annonce={rejectedAnnonce} onValidate={mockOnValidate} onReject={mockOnReject} onDelete={mockOnDelete} />
     );
 
-    // Vérification de l'affichage de la raison [cite: 420]
+    // Vérification de l'affichagee de la raison [cite: 420]
     expect(screen.getByText(/Raison du rejet : Pas conforme/i)).toBeInTheDocument();
     // Les boutons Valider/Rejeter ne doivent pas être là car le statut n'est plus "pending" 
     expect(screen.queryByText(/Valider/i)).not.toBeInTheDocument();
