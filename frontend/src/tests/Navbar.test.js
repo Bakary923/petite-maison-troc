@@ -141,7 +141,7 @@ describe('🧭 Navbar', () => {
   });
 
   // ---------------------------------------------------------
-  // 9) Navigation vers / via le logo
+  // 9) Navigationn vers / via le logo
   // ---------------------------------------------------------
   it('redirige vers / quand on clique sur le logo', () => {
     render(
