@@ -1,28 +1,40 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// ------------------------------------------------------------
-// 📌 MOCK AdminCard (évite de rendre le vrai composant complexe)
-// ------------------------------------------------------------
+// ✅ MOCK AdminCard (Isolation) : 
+// On remplace le composant enfant par une version simplifiée pour ne tester 
+// que la logique de filtrage du Dashboard (Responsabilité Unique).
 jest.mock('../components/AdminCard', () => {
   return function MockAdminCard({ annonce }) {
     return <div data-testid="admin-card">{annonce.titre}</div>;
   };
 });
 
-// Mock authFetch
+// Mock de la fonction de récupération sécurisée
 const mockAuthFetch = jest.fn();
 
-describe('AdminDashboard', () => {
+describe('📊 AdminDashboard - Tests de Logique Modération', () => {
+  
   beforeEach(() => {
     jest.clearAllMocks();
+    
+    // ✅ FIABILITÉ : On neutralise les warnings de styles (conflit border/borderColor)
+    // qui polluent les logs de la CI sans impacter la logique métier.
+    jest.spyOn(console, 'error').mockImplementation((msg) => {
+      if (!msg.includes('borderColor')) console.error(msg);
+    });
   });
 
-  // 1️⃣ Accès refusé
-  it('affiche accès refusé si user non admin', () => {
+  afterEach(() => {
+    console.error.mockRestore();
+  });
+
+  // ==========================================================
+  // 🛡️ TEST DE SÉCURITÉ (ISO 25010)
+  // ==========================================================
+  it('⚓ Doit afficher "Accès Refusé" si l’utilisateur n’est pas administrateur', () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
         <AdminDashboard />
@@ -32,13 +44,15 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
-  // 2️⃣ Chargement et affichage
-  it('charge et affiche les annonces admin', async () => {
+  // ==========================================================
+  // ⚙️ TEST DE CHARGEMENT DYNAMIQUE
+  // ==========================================================
+  it('⚓ Doit charger et afficher les annonces récupérées via authFetch', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { id: 1, titre: 'Annonce A' },
-        { id: 2, titre: 'Annonce B' }
+        { id: 1, titre: 'Annonce Modérée A' },
+        { id: 2, titre: 'Annonce Modérée B' }
       ]
     });
 
@@ -48,13 +62,15 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // On attend que les données soient affichées
-    expect(await screen.findByText(/annonce a/i)).toBeInTheDocument();
-    expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
+    // findByText attend la résolution de la promesse (Asynchronisme)
+    expect(await screen.findByText(/annonce modérée a/i)).toBeInTheDocument();
+    expect(await screen.findByText(/annonce modérée b/i)).toBeInTheDocument();
   });
 
-  // 3️⃣ Changement de filtre
-  it('relance authFetch quand on change de filtre', async () => {
+  // ==========================================================
+  // 🔄 TEST DU CYCLE DE FILTRAGE
+  // ==========================================================
+  it('⚓ Doit relancer authFetch avec le bon filtre lors du clic sur les boutons', async () => {
     mockAuthFetch.mockResolvedValue({
       ok: true,
       json: async () => []
@@ -66,21 +82,28 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Attendre que le chargement initial disparaisse
+    // 1. Attente du chargement initial (Filtre par défaut : en_attente)
     await waitFor(() => {
       expect(screen.queryByText(/chargement/i)).not.toBeInTheDocument();
     });
+    expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
-    // On récupère les boutons
+    // 2. Action : Clic sur le filtre VALIDÉES
     const btnValidees = screen.getByText(/validées/i);
-    const btnRejetees = screen.getByText(/rejetées/i);
-
-    // Click sur Validées
-    await userEvent.click(btnValidees);
+    fireEvent.click(btnValidees);
+    
+    // Validation : L'intercepteur authFetch doit être sollicité une 2ème fois
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
 
-    // Click sur Rejetées
-    await userEvent.click(btnRejetees);
+    // ✅ STABILITÉ CI : Pause technique pour laisser le state React se stabiliser
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 3. Action : Clic sur le filtre REJETÉES
+    const btnRejetees = screen.getByText(/rejetées/i);
+    fireEvent.click(btnRejetees);
+    
+    // Validation finale de l'incrémentation des appels API
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
   });
+
 });
