@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
-import Annonces from '../pages/annonces';
+import Annonces from '../pages/Annonces';
 
 // ============================================================
 // 🧪 MOCK DU NAVIGATE
