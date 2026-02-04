@@ -4,10 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// Mock simple d’AdminCard
+// Mock AdminCard pour simplifier
 jest.mock('../components/AdminCard', () => ({ annonce }) => (
   <div data-testid="admin-card">{annonce.titre}</div>
 ));
+
+// 🔥 On mocke les styles pour éviter les warnings React liés aux styles inline
+jest.mock('../pages/AdminDashboard', () => {
+  const original = jest.requireActual('../pages/AdminDashboard');
+  return {
+    __esModule: true,
+    ...original,
+    styles: {
+      ...original.styles,
+      filterButtonActive: {} // <-- plus de border / borderColor
+    }
+  };
+});
 
 const mockAuthFetch = jest.fn();
 
@@ -16,7 +29,6 @@ describe('AdminDashboard', () => {
     jest.clearAllMocks();
   });
 
-  // --- Accès refusé ---
   it('affiche accès refusé si user non admin', () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
@@ -27,7 +39,6 @@ describe('AdminDashboard', () => {
     expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
   });
 
-  // --- Chargement des annonces ---
   it('charge et affiche les annonces admin', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
@@ -47,7 +58,6 @@ describe('AdminDashboard', () => {
     expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
   });
 
-  // --- Changement de filtre ---
   it('relance authFetch quand on change de filtre', async () => {
     mockAuthFetch.mockResolvedValue({
       ok: true,
@@ -60,23 +70,24 @@ describe('AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // On attend que les textes des boutons soient visibles
+    // On attend que les boutons soient visibles
     await screen.findByText(/en attente/i);
 
     expect(mockAuthFetch).toHaveBeenCalledTimes(1);
 
-    // IMPORTANT : on clique sur le texte, pas sur le bouton (évite les warnings React)
+    // VALIDÉES
     await userEvent.click(screen.getByText(/validées/i));
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
 
+    // REJETÉES
     await userEvent.click(screen.getByText(/rejetées/i));
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
 
+    // TOUTES
     await userEvent.click(screen.getByText(/toutes/i));
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(4));
   });
 
-  // --- État vide ---
   it('affiche un état vide si aucune annonce', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
