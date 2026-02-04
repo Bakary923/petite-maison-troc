@@ -22,15 +22,23 @@ describe('📦 Page CreateAnnonce', () => {
       </AuthContext.Provider>
     );
 
+    // Remplir le titre
     fireEvent.change(screen.getByPlaceholderText(/vélo bleu/i), {
       target: { value: 'Vélo de course' }
     });
 
+    // Remplir la description (OBLIGATOIRE)
+    fireEvent.change(screen.getByPlaceholderText(/Décrivez l'article/i), {
+      target: { value: 'Très bon état, peu servi.' }
+    });
+
+    // Ajouter une image
     const file = new File(['image'], 'velo.png', { type: 'image/png' });
     fireEvent.change(screen.getByLabelText(/image/i), {
       target: { files: [file] }
     });
 
+    // Soumettre
     fireEvent.click(screen.getByText(/publier/i));
 
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalled());
@@ -39,6 +47,7 @@ describe('📦 Page CreateAnnonce', () => {
 
     expect(options.body instanceof FormData).toBe(true);
     expect(options.body.get('titre')).toBe('Vélo de course');
+    expect(options.body.get('description')).toBe('Très bon état, peu servi.');
     expect(options.body.get('image')).toBe(file);
   });
 });
