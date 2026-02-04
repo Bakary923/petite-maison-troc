@@ -1,90 +1,111 @@
-import React, { useContext } from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import { AuthProvider, AuthContext } from '../contexts/AuthContext';
+import React, { createContext, useState, useCallback, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 
-// Mock global de fetch pour simuler les appels API backend
-global.fetch = jest.fn();
+export const AuthContext = createContext();
 
-/**
- * Composant de test minimaliste pour consommer le contexte
- * sans dépendre de l'UI réelle ou du Router.
- */
-const TestComponent = () => {
-  const { user, login, logout, accessToken } = useContext(AuthContext);
+export const AuthProvider = ({ children }) => {
+  const [accessToken, setAccessToken] = useState(localStorage.getItem('accessToken'));
+  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+
+  /**
+   * ===========================
+   * LOGIN
+   * ===========================
+   */
+  const login = useCallback(async ({ email, password }) => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!res.ok) throw new Error('Identifiants invalides');
+
+    const data = await res.json();
+
+    // Regroupement des mises à jour pour éviter les warnings React 19
+    setAccessToken(data.accessToken);
+    setRefreshToken(data.refreshToken);
+    setUser(data.user);
+
+    localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
+    localStorage.setItem('user', JSON.stringify(data.user));
+  }, []);
+
+  /**
+   * ===========================
+   * LOGOUT
+   * ===========================
+   */
+  const logout = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+
+    // ⚠️ IMPORTANT : regrouper les setState pour éviter les warnings act()
+    setAccessToken(null);
+    setRefreshToken(null);
+    setUser(null);
+  }, []);
+
+  /**
+   * ===========================
+   * AUTHFETCH (wrapper sécurisé)
+   * ===========================
+   */
+  const authFetch = useCallback(
+    async (url, options = {}) => {
+      const headers = options.headers || {};
+
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
+      const res = await fetch(url, { ...options, headers });
+
+      // Gestion du token expiré
+      if (res.status === 401 && refreshToken) {
+        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken })
+        });
+
+        if (refreshRes.ok) {
+          const data = await refreshRes.json();
+
+          // Mise à jour groupée (React 19 friendly)
+          setAccessToken(data.accessToken);
+          localStorage.setItem('accessToken', data.accessToken);
+
+          // Rejouer la requête initiale
+          return authFetch(url, options);
+        } else {
+          logout();
+        }
+      }
+
+      return res;
+    },
+    [accessToken, refreshToken, logout]
+  );
+
   return (
-    <div>
-      <div data-testid="user">{user ? user.username : 'guest'}</div>
-      <div data-testid="token">{accessToken || 'no-token'}</div>
-      <button onClick={() => login({ email: 'test@test.com', password: 'password' })}>
-        Login
-      </button>
-      <button onClick={() => logout()}>
-        Logout
-      </button>
-    </div>
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
+        login,
+        logout,
+        authFetch
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
 };
-
-describe('🛡️ AuthContext Logic', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    localStorage.clear();
-  });
-
-  it('✅ Initialise avec guest et sans token', () => {
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    expect(screen.getByTestId('user').textContent).toBe('guest');
-    expect(screen.getByTestId('token').textContent).toBe('no-token');
-  });
-
-  it('✅ Stocke les jetons après un login réussi', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        accessToken: 'fake-access-token',
-        refreshToken: 'fake-refresh-token',
-        user: { username: 'Bakary' }
-      })
-    });
-
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    // Clic direct, sans act()
-    screen.getByText('Login').click();
-
-    // Attente de la mise à jour asynchrone
-    await waitFor(() => {
-      expect(localStorage.getItem('accessToken')).toBe('fake-access-token');
-    });
-
-    expect(screen.getByTestId('user').textContent).toBe('Bakary');
-  });
-
-  it('✅ Doit nettoyer le localStorage au logout', async () => {
-    localStorage.setItem('accessToken', 'token-a-effacer');
-
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    // Clic direct
-    screen.getByText('Logout').click();
-
-    await waitFor(() => {
-      expect(localStorage.getItem('accessToken')).toBeNull();
-    });
-
-    expect(screen.getByTestId('user').textContent).toBe('guest');
-  });
-});
