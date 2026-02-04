@@ -1,13 +1,10 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
 // ============================================================
 // 🧪 MOCK AdminCard
-// ------------------------------------------------------------
-// On évite de rendre le vrai composant (trop complexe).
-// On affiche juste un placeholder simple.
 // ============================================================
 jest.mock('../components/AdminCard', () => ({ annonce }) => (
   <div data-testid="admin-card">{annonce.titre}</div>
@@ -55,17 +52,13 @@ describe('🔐 AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // ESLint exige UNE SEULE assertion dans waitFor
-    await waitFor(() =>
-      expect(screen.getByText(/annonce a/i)).toBeInTheDocument()
-    );
-
-    // Deuxième assertion en dehors du waitFor
-    expect(screen.getByText(/annonce b/i)).toBeInTheDocument();
+    // ✔️ findByText remplace waitFor + getByText
+    expect(await screen.findByText(/annonce a/i)).toBeInTheDocument();
+    expect(await screen.findByText(/annonce b/i)).toBeInTheDocument();
   });
 
   // ---------------------------------------------------------
-  // 3) Changement de filtre (pending → validated → rejected → all)
+  // 3) Changement de filtre
   // ---------------------------------------------------------
   it('rappelle authFetch quand on change de filtre', async () => {
     mockAuthFetch.mockResolvedValue({
@@ -79,32 +72,24 @@ describe('🔐 AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    // Attendre le premier fetch
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(1)
-    );
+    // ✔️ findByText pour attendre le premier rendu
+    await screen.findByText(/toutes/i);
 
     // Validées
     fireEvent.click(screen.getByText(/validées/i));
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(2)
-    );
+    expect(mockAuthFetch).toHaveBeenCalledTimes(2);
 
     // Rejetées
     fireEvent.click(screen.getByText(/rejetées/i));
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(3)
-    );
+    expect(mockAuthFetch).toHaveBeenCalledTimes(3);
 
     // Toutes
     fireEvent.click(screen.getByText(/toutes/i));
-    await waitFor(() =>
-      expect(mockAuthFetch).toHaveBeenCalledTimes(4)
-    );
+    expect(mockAuthFetch).toHaveBeenCalledTimes(4);
   });
 
   // ---------------------------------------------------------
-  // 4) Affichage de l’état vide
+  // 4) État vide
   // ---------------------------------------------------------
   it('affiche un état vide si aucune annonce', async () => {
     mockAuthFetch.mockResolvedValueOnce({
@@ -118,8 +103,6 @@ describe('🔐 AdminDashboard', () => {
       </AuthContext.Provider>
     );
 
-    await waitFor(() =>
-      expect(screen.getByText(/aucune annonce trouvée/i)).toBeInTheDocument()
-    );
+    expect(await screen.findByText(/aucune annonce trouvée/i)).toBeInTheDocument();
   });
 });
