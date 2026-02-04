@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
+// ✅ ESLint : L'import doit être en haut avant les jest.mock
+import Navbar from '../components/Navbar';
 
 // ✅ SOLUTION CI : Mock global complet
 // On déclare mockNavigate ici pour qu'il soit accessible dans les tests
@@ -11,8 +13,6 @@ jest.mock('react-router-dom', () => ({
   BrowserRouter: ({ children }) => <div>{children}</div>,
   Link: ({ children, to }) => <a href={to}>{children}</a>
 }));
-
-import Navbar from '../components/Navbar';
 
 describe('🧭 Navbar', () => {
 

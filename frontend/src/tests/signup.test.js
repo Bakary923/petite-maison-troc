@@ -3,15 +3,11 @@ import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import Signup from '../pages/signup';
 
-// ✅ SOLUTION CI : Simulation du routeur pour l'inscription
+// Mock global
 jest.mock('react-router-dom', () => ({
   useNavigate: () => jest.fn()
 }));
 
-/**
- * TEST MÉTIER : Inscription (Signup)
- * Objectif : Valider la vérification de sécurité des mots de passe.
- */
 describe('📝 Page Signup', () => {
   const mockRegister = jest.fn();
 
@@ -22,7 +18,6 @@ describe('📝 Page Signup', () => {
       </AuthContext.Provider>
     );
 
-    // Utilisation du placeholder réel défini dans le composant
     fireEvent.change(screen.getByPlaceholderText("Mon pseudo"), { target: { value: 'Bakary' } });
     fireEvent.change(screen.getByPlaceholderText('ton@email.com'), { target: { value: 'test@test.com' } });
     

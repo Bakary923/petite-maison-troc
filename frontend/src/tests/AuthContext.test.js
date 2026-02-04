@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { render, act, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react'; // ✅ waitFor ajouté ici
 import { AuthProvider, AuthContext } from '../contexts/AuthContext';
 
 // ✅ Mock global de fetch pour simuler les appels API (Login, Refresh, etc.)
@@ -54,11 +54,12 @@ describe('🛡️ AuthContext', () => {
 
     renderWithProvider();
 
-    await act(async () => {
-      screen.getByText('login').click();
-    });
+    // ✅ ESLint : Pas de act() autour de click(), c'est automatique
+    screen.getByText('login').click();
 
-    expect(localStorage.getItem('accessToken')).toBe('A');
+    await waitFor(() => {
+      expect(localStorage.getItem('accessToken')).toBe('A');
+    });
     expect(localStorage.getItem('refreshToken')).toBe('R');
 
     const username = await screen.findByTestId('username');
@@ -73,11 +74,11 @@ describe('🛡️ AuthContext', () => {
 
     renderWithProvider();
 
-    await act(async () => {
-      screen.getByText('logout').click();
-    });
+    screen.getByText('logout').click();
 
-    expect(localStorage.getItem('accessToken')).toBe(null);
+    await waitFor(() => {
+      expect(localStorage.getItem('accessToken')).toBe(null);
+    });
     expect(localStorage.getItem('refreshToken')).toBe(null);
     expect(localStorage.getItem('user')).toBe(null);
 
@@ -99,12 +100,9 @@ describe('🛡️ AuthContext', () => {
 
     renderWithProvider();
 
-    await act(async () => {
-      const btn = screen.getByText('refresh');
-      btn.click();
-    });
+    screen.getByText('refresh').click();
 
-    // Attente que les effets du contexte se terminent
+    // ✅ Attente que les effets du contexte se terminent
     await waitFor(() => {
         expect(localStorage.getItem('accessToken')).toBe('NEW');
     });
@@ -119,14 +117,14 @@ describe('🛡️ AuthContext', () => {
 
     renderWithProvider();
 
-    await act(async () => {
-      screen.getByText('fetch').click();
-    });
+    screen.getByText('fetch').click();
 
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/test'), expect.objectContaining({
-      headers: expect.objectContaining({
-        Authorization: 'Bearer A'
-      })
-    }));
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/test'), expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer A'
+        })
+      }));
+    });
   });
 });
