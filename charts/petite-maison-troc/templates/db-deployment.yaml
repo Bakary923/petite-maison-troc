@@ -1,9 +1,14 @@
+# ✅ DÉPLOIEMENT DE LA BASE DE DONNÉES (POSTGRESQL)
+# Gère le moteur de base de données et garantit que les données sont écrites sur le disque persistant.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-db
+  labels:
+    app: postgres
 spec:
-  replicas: 1
+  # Une base de données SQL standard ne supporte généralement qu'un seul réplica pour éviter les corruptions de données.
+  replicas: 1 
   selector:
     matchLabels:
       app: postgres
@@ -15,6 +20,7 @@ spec:
       containers:
         - name: postgres
           image: {{ .Values.database.image | default "postgres:16-alpine" }}
+          # 🔐 CONFIGURATION SÉCURISÉE : Récupération des identifiants depuis les Secrets K8s
           env:
             - name: POSTGRES_DB
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-db } }
@@ -24,22 +30,16 @@ spec:
               valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-password } }
           ports:
             - containerPort: 5432
+          
+          # 💾 PERSISTANCE : Le dossier de données de Postgres est lié au PVC
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
+              # Indispensable pour éviter que Postgres ne crée ses fichiers à la racine du volume
+              subPath: postgres
+              
       volumes:
         - name: postgres-storage
           persistentVolumeClaim:
-            # ✅ On utilise la variable du values.yaml qui contient "postgres-pvc"
-            claimName: {{ .Values.database.pvcName }} 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-spec:
-  selector:
-    app: postgres
-  ports:
-    - port: 5432
-      targetPort: 5432
+            # Référence au PVC défini dans values.yaml (postgres-pvc)
+            claimName: {{ .Values.database.pvcName }}

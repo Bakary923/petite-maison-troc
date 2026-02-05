@@ -1,8 +1,13 @@
+# ✅ DÉPLOIEMENT DU FRONTEND
+# Gère le cycle de vie des Pods (réplication, mise à jour, image Docker)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-frontend
+  labels:
+    app: frontend
 spec:
+  # Nombre d'instances souhaitées (défini dans values.yaml)
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
   selector:
     matchLabels:
@@ -14,23 +19,13 @@ spec:
     spec:
       containers:
         - name: web
+          # Image récupérée depuis la GitHub Container Registry (GHCR)
           image: {{ .Values.frontend.image }}
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 80 }}
           env:
-            # On passe l'URL du backend dynamiquement
+            # 🌐 INJECTION DE L'URL API : Permet au Front de savoir où appeler le Back.
+            # Sur OpenShift, cette URL sera l'adresse de la Route Backend.
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}-frontend
-spec:
-  type: {{ .Values.frontend.serviceType | default "LoadBalancer" }}
-  selector:
-    app: frontend
-  ports:
-    - port: {{ .Values.frontend.servicePort }}
-      targetPort: {{ .Values.frontend.containerPort | default 80 }}

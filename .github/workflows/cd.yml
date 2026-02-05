@@ -1,0 +1,83 @@
+name: 🚀 CD - Deploy to OpenShift
+
+# 触发器 (Trigger) : Le déploiement se lance après la réussite de la CI
+on:
+  workflow_run:
+    workflows: ["🛠️ CI - Test & Build"] # Doit correspondre EXACTEMENT au 'name' de ta CI
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    # 🔗 ÉTAPE DE CONTRÔLE : Lie ce job à l'environnement 'production' sur GitHub
+    # Rôle : Active le bouton d'approbation manuelle (Approval Gate) pour le Lead Dev.
+    environment: production 
+
+    # ✅ Condition de sécurité : On ne déploie que si les tests CI sont au vert
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
+      # Technologie : GitHub Actions
+      # Rôle : Récupère les Helm Charts et les fichiers de configuration (Infrastructure as Code)
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      # --- ÉTAPE 2 : VÉRIFICATION DE LA QUALITÉ (TEST STATIQUE) ---
+      # Technologie : Helm Lint
+      # Rôle : Évaluer la qualité du développement de l'infrastructure avant déploiement
+      - name: 🔍 Helm Chart Lint
+        run: |
+          helm lint ./charts/petite-maison-troc
+          # Empêche le déploiement si une erreur de syntaxe ou de conformité est détectée
+
+      # --- ÉTAPE 3 : AUTHENTIFICATION AU CLUSTER CLOUD ---
+      # Technologie : RedHat OpenShift (oc login)
+      # Rôle : Connexion sécurisée au bac à sable (Sandbox) via les secrets GitHub
+      - name: 🔐 Authenticate to OpenShift
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server: ${{ secrets.OPENSHIFT_SERVER }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+          namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
+
+      # --- ÉTAPE 4 : DÉPLOIEMENT ORCHESTRÉ AVEC STRATÉGIE DE ROLLBACK ---
+      # Technologie : Helm upgrade --install
+      # Rôle : Orchestrer la mise en production et garantir la disponibilité (Anti-casse)
+      - name: 🏗️ Helm Upgrade & Rollback Strategy
+        run: |
+          helm upgrade petite-maison ./charts/petite-maison-troc \
+            --install \
+            --atomic \ # 🔄 Active le Rollback automatique si le déploiement échoue
+            --wait \   # ⏳ Attend que tous les Pods soient en état 'Ready' (Health Check)
+            --timeout 5m0s \
+            --set openshift.enabled=true \
+            --set frontend.image.tag=latest \
+            --set backend.image.tag=latest \
+            -f ./charts/petite-maison-troc/values.yaml \
+            --set secrets.dbName="petite_maison" \
+            --set secrets.dbUser="dev" \
+            --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
+            --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
+            --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
+            --namespace ${{ secrets.OPENSHIFT_NAMESPACE }}
+
+      # --- ÉTAPE 5 : SUPERVISION ET OBSERVABILITÉ ---
+      # Technologie : OpenShift CLI (oc)
+      # Rôle : Vérifier l'état des ressources (Pods, Services, Routes) post-déploiement
+      - name: 🩺 Check Pods Status
+        run: |
+          oc get pods
+          oc get services
+          oc get routes
+
+      # --- ÉTAPE 6 : TEST DE CONNECTIVITÉ FINALE (SMOKE TEST) ---
+      # Technologie : Curl / HTTP
+      # Rôle : Démontrer la faisabilité réelle du POC via un code retour HTTP 200
+      - name: 🌐 Smoke Test (Vérification URL HTTPS)
+        run: |
+          echo "Vérification de l'accès au Frontend..."
+          # Une fois l'URL de ta Route connue, décommente la ligne suivante :
+          # curl -I -k -s https://votre-route-openshift | grep "200 OK"

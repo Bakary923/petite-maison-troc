@@ -2,16 +2,21 @@ apiVersion: v2
 name: petite-maison-troc
 description: Chart Helm pour le déploiement orchestré (Frontend, Backend, Database) de l'application de troc.
 
-# Type d'application
+# 🏷️ TYPE : 'application' signifie que ce chart déploie des services utilisables.
+# (Par opposition à 'library' qui ne servirait qu'à être réutilisé par d'autres charts).
 type: application
 
-# La version du "paquet" Helm (à incrémenter si tu changes la config Kubernetes)
+# 📌 VERSION DU CHART (v1.0.0) : 
+# C'est la version de ton infrastructure Kubernetes. 
+# Si tu ajoutes une Route ou un Service, tu incrémentes ici.
 version: 1.0.0
 
-# La version réelle de ton code applicatif (ton tag Docker)
+# 🚀 APPVERSION (v1.0.0) : 
+# C'est la version de ton code source (le tag de tes images Docker).
+# Cela permet de savoir quel code tourne sur quelle infrastructure.
 appVersion: "1.0.0"
 
-# Ton nom en tant que responsable du déploiement
+# 👨‍💻 RESPONSABLE DU PROJET
 maintainers:
   - name: Bakary
     email: badiaga.bakary13@gmail.com

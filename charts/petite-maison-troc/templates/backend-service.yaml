@@ -1,0 +1,16 @@
+# ✅ SERVICE DU BACKEND
+# Permet au frontend et aux administrateurs d'accéder à l'API.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend
+spec:
+  # ClusterIP est recommandé ici car l'API est souvent appelée via l'Ingress/Route
+  type: {{ .Values.backend.serviceType | default "ClusterIP" }}
+  selector:
+    app: backend
+  ports:
+    - name: api # ✅ Nom du port pour faciliter le routage OpenShift
+      port: {{ .Values.backend.servicePort }}
+      targetPort: {{ .Values.backend.containerPort }}
+      protocol: TCP
