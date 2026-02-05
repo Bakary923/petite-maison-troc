@@ -20,7 +20,8 @@ spec:
       containers:
         - name: web
           # Image récupérée depuis la GitHub Container Registry (GHCR)
-          image: {{ .Values.frontend.image }}
+          # Correction : Utilisation du repository et du tag pour former une URL valide
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 80 }}

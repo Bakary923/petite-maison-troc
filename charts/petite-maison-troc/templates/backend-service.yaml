@@ -10,7 +10,7 @@ spec:
   selector:
     app: backend
   ports:
-    - name: api # ✅ Nom du port pour faciliter le routage OpenShift
+    - name: http # ✅ Modifié en 'http' pour correspondre au targetPort de la Route OpenShift
       port: {{ .Values.backend.servicePort }}
       targetPort: {{ .Values.backend.containerPort }}
       protocol: TCP

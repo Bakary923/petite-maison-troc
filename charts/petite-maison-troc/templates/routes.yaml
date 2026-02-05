@@ -4,7 +4,7 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  # Nom fixe pour éviter la dépendance aux helpers Helm manquants
+  # Nom de la route pour l'accès externe
   name: petite-maison-frontend
   labels:
     app: petite-maison
@@ -13,9 +13,10 @@ spec:
   # 🔗 LIAISON : On pointe la Route vers le Service Frontend
   to:
     kind: Service
-    name: petite-maison-frontend
+    # Correction : Utilisation du nom dynamique pour correspondre au Service
+    name: {{ .Release.Name }}-frontend
   
-  # 🚪 PORT : On cible le port du service (vérifie que ton service s'appelle 'http' ou change par 8080)
+  # 🚪 PORT : On cible le port du service nommé 'http'
   port:
     targetPort: http
 

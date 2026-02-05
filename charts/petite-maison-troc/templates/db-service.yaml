@@ -6,7 +6,7 @@ metadata:
   # Doit correspondre à la variable DB_HOST de ton backend (souvent 'postgres')
   name: {{ .Values.database.host | default "postgres" }}
 spec:
-  # ClusterIP uniquement : La base de données ne doit JAMAIS être exposée sur le Web.
+  # ClusterIP uniquement : La base de données ne doit JAMAIS être exposée sur le Web (Sécurité DevSecOps).
   type: ClusterIP
   selector:
     app: postgres

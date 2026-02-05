@@ -17,8 +17,6 @@ spec:
         app: backend
     spec:
       # 🛠️ INIT CONTAINER : Sécurité et Droits d'accès
-      # S'exécute AVANT l'API pour s'assurer que le dossier des images est prêt
-      # et possède les bonnes permissions (évite les erreurs EACCES).
       initContainers:
         - name: fix-permissions
           image: busybox
@@ -29,7 +27,8 @@ spec:
       
       containers:
         - name: api
-          image: {{ .Values.backend.image }}
+          # Correction : Utilisation du repository et du tag pour éviter l'erreur de table
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
@@ -40,7 +39,6 @@ spec:
               mountPath: /app/uploads
 
           # 🔐 VARIABLES D'ENVIRONNEMENT : Injection sécurisée
-          # Les données sensibles (mots de passe, clés JWT) ne sont pas écrites en dur.
           env:
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}

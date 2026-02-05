@@ -1,11 +1,13 @@
 {{- if not .Values.openshift.enabled -}}
+# ✅ INGRESS (STANDARDS KUBERNETES / MINIKUBE)
+# Gère le routage du trafic externe vers les services internes via un Ingress Controller Nginx.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
   annotations:
-    # On utilise une expression régulière pour capturer tout ce qui suit /api
-    # et le renvoyer proprement au backend sans casser les routes.
+    # 🧠 LOGIQUE DE REWRITE : Capture tout ce qui suit /api et le renvoie au backend 
+    # sans le préfixe /api pour ne pas casser les routes internes de l'API Node.js.
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     kubernetes.io/ingress.class: nginx
 spec:
@@ -13,7 +15,8 @@ spec:
   - host: petite-maison.local
     http:
       paths:
-      # Route pour le FRONTEND
+      # 🌐 ROUTE FRONTEND
+      # Capture la racine et redirige vers le service Frontend sur le port 80.
       - path: /()(.*)
         pathType: ImplementationSpecific
         backend:
@@ -21,7 +24,9 @@ spec:
             name: {{ .Release.Name }}-frontend
             port:
               number: 80
-      # Route pour le BACKEND (API)
+
+      # ⚙️ ROUTE BACKEND (API)
+      # Capture tout ce qui commence par /api/ et redirige vers le service Backend.
       - path: /api/(.*)
         pathType: ImplementationSpecific
         backend:

@@ -3,13 +3,12 @@
 # ============================================================
 
 # --- 1. CONFIGURATION DE LA PLATEFORME ---
-# Interrupteur logique : false = Minikube (Ingress), true = OpenShift (Route)
+# true = OpenShift (Route), false = Minikube (Ingress)
 openshift:
-  enabled: false
+  enabled: true
 
 # --- 2. SECRETS & SÉCURITÉ ---
-# ⚠️ Ces valeurs sont des placeholders. Les vraies valeurs sont injectées 
-# via 'values-secrets.yaml' en local ou '--set' dans la CI/CD GitHub.
+# Injectés via --set dans la CD ou values-secrets.yaml en local
 secrets:
   dbName: "REDACTED"
   dbUser: "REDACTED"
@@ -19,24 +18,26 @@ secrets:
 
 # --- 3. BACKEND (API) ---
 backend:
-  image: ghcr.io/bakary923/petite-maison-troc/backend:latest
+  image:
+    repository: ghcr.io/bakary923/petite-maison-troc/backend
+    tag: latest
   replicaCount: 1
   containerPort: 3000
-  servicePort: 3000   # Port interne du cluster
+  servicePort: 3000
   serviceType: ClusterIP 
   pullPolicy: Always
-  # URL d'accès à l'API (Sera surchargée par la Route sur OpenShift)
   url: "http://petite-maison.local/api" 
 
 # --- 4. FRONTEND (WEB) ---
 frontend:
-  image: ghcr.io/bakary923/petite-maison-troc/frontend:latest
+  image:
+    repository: ghcr.io/bakary923/petite-maison-troc/frontend
+    tag: latest
   replicaCount: 1
   containerPort: 80
-  servicePort: 80     # Port standard pour Nginx
+  servicePort: 80
   serviceType: ClusterIP
   pullPolicy: Always
-  # URL d'accès au site
   url: "http://petite-maison.local"
 
 # --- 5. BASE DE DONNÉES (POSTGRESQL) ---
@@ -44,18 +45,19 @@ database:
   image: postgres:16-alpine
   host: "postgres"
   port: 5432
-  pvcName: "postgres-pvc" # Doit correspondre au PVC créé dans le cluster
+  pvcName: "postgres-pvc"
   storageSize: 1Gi
   accessMode: ReadWriteOnce
 
 # --- 6. STOCKAGE PERSISTANT (UPLOADS) ---
 storage:
-  pvcName: "uploads-pvc"  # Pour conserver les images des annonces
+  pvcName: "uploads-pvc"
   uploadsSize: 1Gi
   accessMode: ReadWriteOnce
 
 # --- 7. INGRESS (Minikube / Standard K8s) ---
+# Désactivé sur OpenShift car la Route prend le relais
 ingress:
-  enabled: true
+  enabled: false
   className: "nginx"
   host: "petite-maison.local"
