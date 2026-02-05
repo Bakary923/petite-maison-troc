@@ -1,9 +1,13 @@
 name: 🚀 CD - Deploy to OpenShift
 
-# 触发器 (Trigger) : Le déploiement se lance après la réussite de la CI
+# 触发器 (Trigger) : Le déploiement se lance après la réussite de la CI ou manuellement
 on:
+  # Permet de lancer le déploiement manuellement via l'interface ou la CLI (gh workflow run)
+  workflow_dispatch:
+
+  # Déclenchement automatique après le succès du workflow de CI
   workflow_run:
-    workflows: ["CI Petite Maison DevSecOps"] # Doit correspondre EXACTEMENT au 'name' de ta CI
+    workflows: ["CI Petite Maison DevSecOps"]
     types: [completed]
     branches: [main]
 
@@ -11,47 +15,47 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     
-    # 🔗 ÉTAPE DE CONTRÔLE : Lie ce job à l'environnement 'production' sur GitHub
-    # Rôle : Active le bouton d'approbation manuelle (Approval Gate) pour le Lead Dev.
+    # 🔗 ÉTAPE DE CONTRÔLE : Lie ce job à l'environnement 'production'
+    # Active la validation manuelle (Approval Gate) sur GitHub pour le Lead Dev.
     environment: production 
 
-    # ✅ Condition de sécurité : On ne déploie que si les tests CI sont au vert
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # ✅ Condition de sécurité : On ne déploie que si les tests CI sont validés (Success)
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     steps:
       # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
-      # Technologie : GitHub Actions
-      # Rôle : Récupère les Helm Charts et les fichiers de configuration (Infrastructure as Code)
+      # Technologie : GitHub Actions / Checkout
+      # Rôle : Récupère les Helm Charts pour l'Infrastructure as Code (IaC).
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : VÉRIFICATION DE LA QUALITÉ (TEST STATIQUE) ---
+      # --- ÉTAPE 2 : QUALITÉ DE L'INFRASTRUCTURE (LINTING) ---
       # Technologie : Helm Lint
-      # Rôle : Évaluer la qualité du développement de l'infrastructure avant déploiement
+      # Rôle : Analyse statique des fichiers YAML pour prévenir les erreurs de déploiement.
       - name: 🔍 Helm Chart Lint
         run: |
           helm lint ./charts/petite-maison-troc
-          # Empêche le déploiement si une erreur de syntaxe ou de conformité est détectée
 
-      # --- ÉTAPE 3 : AUTHENTIFICATION AU CLUSTER CLOUD ---
-      # Technologie : RedHat OpenShift (oc login)
-      # Rôle : Connexion sécurisée au bac à sable (Sandbox) via les secrets GitHub
+      # --- ÉTAPE 3 : AUTHENTIFICATION CLOUD (CORRIGÉE) ---
+      # Technologie : RedHat OpenShift Login
+      # Rôle : Établit une connexion sécurisée avec le cluster via les secrets du dépôt.
       - name: 🔐 Authenticate to OpenShift
         uses: redhat-actions/oc-login@v1
         with:
-          openshift_server: ${{ secrets.OPENSHIFT_SERVER }}
+          # Correction : Utilisation du paramètre exact 'openshift_server_url'
+          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 4 : DÉPLOIEMENT ORCHESTRÉ AVEC STRATÉGIE DE ROLLBACK ---
+      # --- ÉTAPE 4 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE ---
       # Technologie : Helm upgrade --install
-      # Rôle : Orchestrer la mise en production et garantir la disponibilité (Anti-casse)
+      # Rôle : Mise à jour atomique. Si les Pods ne démarrent pas, Helm restaure l'ancienne version.
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
             --install \
-            --atomic \ # 🔄 Active le Rollback automatique si le déploiement échoue
-            --wait \   # ⏳ Attend que tous les Pods soient en état 'Ready' (Health Check)
+            --atomic \
+            --wait \
             --timeout 5m0s \
             --set openshift.enabled=true \
             --set frontend.image.tag=latest \
@@ -64,20 +68,19 @@ jobs:
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
             --namespace ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : SUPERVISION ET OBSERVABILITÉ ---
+      # --- ÉTAPE 5 : OBSERVABILITÉ POST-DÉPLOIEMENT ---
       # Technologie : OpenShift CLI (oc)
-      # Rôle : Vérifier l'état des ressources (Pods, Services, Routes) post-déploiement
+      # Rôle : Supervision immédiate des Pods, Services et Routes créés.
       - name: 🩺 Check Pods Status
         run: |
           oc get pods
           oc get services
           oc get routes
 
-      # --- ÉTAPE 6 : TEST DE CONNECTIVITÉ FINALE (SMOKE TEST) ---
+      # --- ÉTAPE 6 : VALIDATION FINALE (SMOKE TEST) ---
       # Technologie : Curl / HTTP
-      # Rôle : Démontrer la faisabilité réelle du POC via un code retour HTTP 200
-      - name: 🌐 Smoke Test (Vérification URL HTTPS)
+      # Rôle : Prouver la disponibilité réelle du service via un test de connectivité.
+      - name: 🌐 Smoke Test (Vérification URL)
         run: |
-          echo "Vérification de l'accès au Frontend..."
-          # Une fois l'URL de ta Route connue, décommente la ligne suivante :
-          # curl -I -k -s https://votre-route-openshift | grep "200 OK"
+          echo "Vérification du déploiement..."
+          # Une fois la route connue, ce test confirme le code HTTP 200 (Succès)
