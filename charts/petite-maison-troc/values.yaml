@@ -79,7 +79,7 @@ storage:
 
 
 # --- 7. INGRESS (Minikube / Standard K8s) ---
-# Désactivé sur OpenShift car la Route prend le relais.
+# Désactivé sur OpenShift car la Route prend le relais....
 ingress:
   enabled: false
   className: "nginx"
