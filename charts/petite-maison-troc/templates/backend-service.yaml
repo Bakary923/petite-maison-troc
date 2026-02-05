@@ -1,16 +1,23 @@
-# ✅ SERVICE DU BACKEND
-# Permet au frontend et aux administrateurs d'accéder à l'API.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-backend
+
 spec:
-  # ClusterIP est recommandé ici car l'API est souvent appelée via l'Ingress/Route
+  # ClusterIP = service interne au cluster
+  # Sur OpenShift, la Route exposera l'API publiquement
   type: {{ .Values.backend.serviceType | default "ClusterIP" }}
+
   selector:
+    # Doit correspondre exactement au label du Deployment backend
     app: backend
+
   ports:
-    - name: http # ✅ Modifié en 'http' pour correspondre au targetPort de la Route OpenShift
-      port: {{ .Values.backend.servicePort }}
-      targetPort: {{ .Values.backend.containerPort }}
+    - name: http
+      # Port interne du service (utilisé par la Route ou le frontend)
+      port: {{ .Values.backend.servicePort | default 3000 }}
+
+      # Port exposé par le container backend (Dockerfile backend)
+      targetPort: {{ .Values.backend.containerPort | default 3000 }}
+
       protocol: TCP

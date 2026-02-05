@@ -1,26 +1,29 @@
-// On importe 'pg' pour PostgreSQL et dotenv pour charger les variables du .env
-require('dotenv').config(); // Charge les variables d'environnement depuis .env automatiquement
+// Chargement des variables d'environnement (local uniquement)
+require('dotenv').config();
+
 const { Pool } = require('pg');
 
-
-// On crée une "pool" de connexions PostgreSQL avec les infos cachées dans .env
+// Connexion PostgreSQL vers SUPABASE
+// Supabase impose SSL et un host externe (db.xxxxx.supabase.co)
 const pool = new Pool({
-  host: process.env.DB_HOST,         // hôte serveur, en général 'localhost'
-  port: process.env.DB_PORT,         // port PostgreSQL, par défaut 5432
-  database: process.env.DB_NAME,     // nom de la base, ici 'petite_maison'
-  user: process.env.DB_USER,         // nom d'utilisateur DB, ici 'dev'
-  password: process.env.DB_PASSWORD  // mot de passe DB, ici 'devpass'
+  host: process.env.DB_HOST,          // ex: db.xxxxx.supabase.co
+  port: Number(process.env.DB_PORT),  // 5432
+  database: process.env.DB_NAME,      // "postgres"
+  user: process.env.DB_USER,          // "postgres"
+  password: process.env.DB_PASSWORD,  // ton vrai mot de passe Supabase
+  ssl: {
+    rejectUnauthorized: false         // obligatoire pour Supabase
+  }
 });
 
-// On teste la connexion au démarrage pour vérifier que tout est bien configuré
+// Test de connexion (utile pour les logs Kubernetes)
 pool
-  .query('SELECT 1') // petite requête de test
+  .query('SELECT 1')
   .then(() => {
-    console.log('✅ Connexion PostgreSQL OK');
+    console.log('✅ Connexion Supabase PostgreSQL OK');
   })
   .catch((err) => {
-    console.error('❌ Erreur connexion PostgreSQL', err); // log clair en cas de problème
+    console.error('❌ Erreur connexion Supabase PostgreSQL', err);
   });
-  
-// On exporte cette variable pour l'utiliser dans tous les contrôleurs facilement
+
 module.exports = pool;

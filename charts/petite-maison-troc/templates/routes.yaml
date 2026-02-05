@@ -1,30 +1,30 @@
-{{- if .Values.openshift.enabled -}}
-# ✅ RESSOURCE SPÉCIFIQUE OPENSHIFT : La Route
-# La Route gère automatiquement l'exposition publique, le DNS et le certificat SSL.
+{{- if .Values.openshift.enabled }}
+
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  # Nom de la route pour l'accès externe
+  # Nom de la route (tu avais choisi ce nom, je le garde)
   name: petite-maison-frontend
+
+  # Tes labels d’origine, conservés tels quels
   labels:
     app: petite-maison
     component: frontend
+
 spec:
-  # 🔗 LIAISON : On pointe la Route vers le Service Frontend
+  # Le service ciblé doit être exactement le nom du Service frontend
   to:
     kind: Service
-    # Correction : Utilisation du nom dynamique pour correspondre au Service
     name: {{ .Release.Name }}-frontend
-  
-  # 🚪 PORT : On cible le port du service nommé 'http'
+
+  # Le port doit correspondre au port nommé dans le Service frontend
+  # Ton Service frontend expose un port nommé "http"
   port:
     targetPort: http
 
-  # 🔐 SÉCURITÉ (HTTPS) : Configuration de la terminaison TLS (Conformité DevSecOps)
+  # HTTPS géré par OpenShift (terminaison TLS côté routeur)
   tls:
-    # Mode 'edge' : Le certificat SSL est géré par le routeur OpenShift (Terminaison TLS).
     termination: edge
-    
-    # Redirection automatique : Force l'utilisateur à passer du HTTP vers le HTTPS.
     insecureEdgeTerminationPolicy: Redirect
-{{- end -}}
+
+{{- end }}

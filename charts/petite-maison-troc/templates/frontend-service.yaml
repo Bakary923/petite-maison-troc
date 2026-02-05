@@ -1,17 +1,22 @@
-# ✅ SERVICE DU FRONTEND
-# Agit comme un équilibreur de charge (Load Balancer) interne pour les Pods frontend.
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-frontend
+
 spec:
-  # Sur OpenShift, ClusterIP suffit car la Route expose le service à l'extérieur.
+  # Sur OpenShift, ClusterIP suffit car la Route expose le service
   type: {{ .Values.frontend.serviceType | default "ClusterIP" }}
+
   selector:
-    # 🎯 CIBLAGE : Doit correspondre exactement au label défini dans le Deployment
+    # Doit correspondre exactement au label du Deployment frontend
     app: frontend
+
   ports:
-    - name: http  # 👈 NOM DU PORT : Indispensable pour être lié à la Route OpenShift
-      port: {{ .Values.frontend.servicePort }}
-      targetPort: {{ .Values.frontend.containerPort | default 80 }}
+    - name: http
+      # 🚨 IMPORTANT : ton frontend tourne maintenant sur 8080 (non-root)
+      port: {{ .Values.frontend.servicePort | default 8080 }}
+
+      # Le container expose aussi 8080 (Dockerfile corrigé)
+      targetPort: {{ .Values.frontend.containerPort | default 8080 }}
+
       protocol: TCP

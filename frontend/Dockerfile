@@ -1,6 +1,6 @@
-# --- ÉTAPE 1 : Le Build ---
-# On utilise Node pour transformer le code React en fichiers HTML/JS statiques
-FROM node:18-alpine as build-stage
+# --- ÉTAPE 1 : Build React ---
+# On compile le frontend dans une image Node légère
+FROM node:18-alpine AS build-stage
 
 WORKDIR /app
 
@@ -8,22 +8,33 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copie du code et compilation
+# Copie du code et build
 COPY . .
 RUN npm run build
 
-# --- ÉTAPE 2 : La Production ---
-# On utilise Nginx, beaucoup plus performant que Node pour servir des fichiers
+
+# --- ÉTAPE 2 : Serveur Nginx sécurisé ---
+# L’image nginx:stable-alpine tourne en root → interdit sur OpenShift Sandbox
 FROM nginx:stable-alpine
 
-# ✅ AJOUT : On copie la configuration personnalisée pour gérer le rafraîchissement (Refresh 404)
+# Création d’un utilisateur non-root compatible OpenShift (UID 1001)
+# OpenShift injecte un UID aléatoire, mais il doit être autorisé à écrire dans les dossiers
+RUN adduser -D -u 1001 appuser
+
+# Donner les droits nécessaires aux dossiers utilisés par Nginx
+# Sans ça : "permission denied" → CrashLoopBackOff
+RUN chown -R 1001:1001 /var/cache/nginx /var/run /usr/share/nginx/html
+
+# Copie de la configuration Nginx personnalisée
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# On copie uniquement le résultat du build (dossier /build) dans le dossier public de Nginx
+# Copie du build React dans le dossier public de Nginx
 COPY --from=build-stage /app/build /usr/share/nginx/html
 
-# Exposition du port web standard (80 dans le conteneur)
-EXPOSE 80
+# Exécution en utilisateur non-root
+USER 1001
 
-# Lancement de Nginx
+# OpenShift interdit les ports < 1024 → on expose 8080
+EXPOSE 8080
+
 CMD ["nginx", "-g", "daemon off;"]

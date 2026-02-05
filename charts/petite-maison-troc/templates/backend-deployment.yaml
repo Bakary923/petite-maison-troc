@@ -1,65 +1,98 @@
-# ✅ DÉPLOIEMENT DU BACKEND (API)
-# Gère l'application Node.js, la persistance des images et la connexion DB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
+
 spec:
   replicas: {{ .Values.backend.replicaCount | default 1 }}
+
   selector:
     matchLabels:
       app: backend
+
   template:
     metadata:
       labels:
         app: backend
+
     spec:
-      # 🛠️ INIT CONTAINER : Sécurité et Droits d'accès
-      initContainers:
-        - name: fix-permissions
-          image: busybox
-          command: ["sh", "-c", "mkdir -p /app/uploads && chmod -R 777 /app/uploads"]
-          volumeMounts:
-            - name: storage-uploads
-              mountPath: /app/uploads
-      
+      # 🔐 Permet de tirer les images privées depuis GHCR
+      imagePullSecrets:
+        - name: ghcr-secret
+
+      # 🔒 OpenShift impose un user non-root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+
+      # ❌ Aucun initContainer (interdit sur OpenShift Sandbox)
+      # Les permissions doivent être gérées dans ton Dockerfile
+
       containers:
         - name: api
-          # Correction : Utilisation du repository et du tag pour éviter l'erreur de table
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
+
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
-          
-          # 📁 MONTAGE DU VOLUME : Persistance des images
+
+          # 📁 Volume persistant pour les uploads
           volumeMounts:
             - name: storage-uploads
               mountPath: /app/uploads
 
-          # 🔐 VARIABLES D'ENVIRONNEMENT : Injection sécurisée
+          # 🔐 Variables d'environnement (Supabase + JWT)
           env:
+            # --- Connexion Supabase ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
-            - name: DB_NAME
-              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-db } }
-            - name: DB_USER
-              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-user } }
-            - name: DB_PASSWORD
-              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-password } }
+
             - name: DB_PORT
               value: {{ .Values.database.port | quote }}
+
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: dbName
+
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: dbUser
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: dbPassword
+
+            # --- Port interne du backend ---
             - name: PORT
               value: {{ .Values.backend.containerPort | quote }}
+
+            # --- URL du frontend (CORS) ---
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
+
+            # --- JWT secrets ---
             - name: JWT_SECRET
-              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: jwt-secret } }
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: jwtSecret
+
             - name: JWT_REFRESH_SECRET
-              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: jwt-refresh-secret } }
-      
-      # 💾 DÉFINITION DU VOLUME : Lien avec le PVC
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: jwtRefreshSecret
+
+      # 💾 Volume persistant pour les images uploadées
       volumes:
         - name: storage-uploads
           persistentVolumeClaim:

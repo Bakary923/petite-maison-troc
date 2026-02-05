@@ -1,29 +1,26 @@
-# 1. Utilisation d'une image de base légère et sécurisée (Alpine Linux)
+# Image Node légère
 FROM node:18-alpine
 
-# 2. Définition du dossier de travail à l'intérieur du conteneur
 WORKDIR /app
 
-# 3. Copie des fichiers de configuration des dépendances
-# On les copie en premier pour optimiser le cache Docker
+# Installation des dépendances (production uniquement)
 COPY package*.json ./
-
-# 4. Installation des dépendances (production uniquement pour la sécurité)
 RUN npm install --only=production
 
-# 5. Copie de l'intégralité du code source du dossier backend/api-service
+# Copie du code source
 COPY . .
 
-# 6. Création et sécurisation du dossier pour les images de troc
-# On s'assure que le dossier existe pour éviter les erreurs de chemin
-RUN mkdir -p uploads && chmod 755 uploads
+# Création d’un utilisateur non-root compatible OpenShift (UID 1001)
+RUN adduser -D -u 1001 appuser
 
-# 7. Exposition du port de l'API (défini dans ton app.js)
+# Préparation du dossier uploads AVANT de changer d’utilisateur
+# Très important : OpenShift utilise un UID aléatoire → il doit avoir les droits
+RUN mkdir -p uploads && chown -R 1001:1001 /app
+
+# Exécution en utilisateur non-root
+USER 1001
+
+# Port de l’API
 EXPOSE 3000
 
-# 8. Utilisation d'un utilisateur non-privilégié "node" au lieu de "root"
-# C'est une mesure de sécurité essentielle pour ton dossier technique
-USER node
-
-# 9. Commande de démarrage du serveur
 CMD ["node", "src/app.js"]

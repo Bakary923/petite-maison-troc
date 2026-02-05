@@ -1,32 +1,45 @@
-# ✅ DÉPLOIEMENT DU FRONTEND
-# Gère le cycle de vie des Pods (réplication, mise à jour, image Docker)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-frontend
   labels:
     app: frontend
+
 spec:
-  # Nombre d'instances souhaitées (défini dans values.yaml)
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
+
   selector:
     matchLabels:
       app: frontend
+
   template:
     metadata:
       labels:
         app: frontend
+
     spec:
+      # 🔐 Permet de tirer les images GHCR privées
+      imagePullSecrets:
+        - name: ghcr-secret
+
+      # 🔒 OpenShift Sandbox : impose un user non-root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+
       containers:
         - name: web
-          # Image récupérée depuis la GitHub Container Registry (GHCR)
-          # Correction : Utilisation du repository et du tag pour former une URL valide
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
+
+          # 🚨 IMPORTANT : OpenShift interdit les ports < 1024
+          # Ton Dockerfile frontend expose 8080 → on respecte ce port
           ports:
-            - containerPort: {{ .Values.frontend.containerPort | default 80 }}
+            - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
+
           env:
-            # 🌐 INJECTION DE L'URL API : Permet au Front de savoir où appeler le Back.
-            # Sur OpenShift, cette URL sera l'adresse de la Route Backend.
+            # URL du backend (sera remplacée par la Route OpenShift)
+            # Cette valeur est utilisée par React au build
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
