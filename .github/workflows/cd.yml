@@ -71,7 +71,9 @@ jobs:
             --wait \
             --timeout 5m0s \
             --set openshift.enabled=true \
+            --set frontend.image.repository=ghcr.io/bakary923/petite-maison-troc/frontend \
             --set frontend.image.tag=latest \
+            --set backend.image.repository=ghcr.io/bakary923/petite-maison-troc/backend \
             --set backend.image.tag=latest \
             --set secrets.dbName="petite_maison" \
             --set secrets.dbUser="dev" \

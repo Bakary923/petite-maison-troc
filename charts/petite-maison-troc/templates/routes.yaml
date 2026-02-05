@@ -1,32 +1,29 @@
 {{- if .Values.openshift.enabled -}}
 # ✅ RESSOURCE SPÉCIFIQUE OPENSHIFT : La Route
-# Contrairement à l'Ingress standard, la Route est native à OpenShift 
-# et gère automatiquement l'exposition publique et le DNS.
+# La Route gère automatiquement l'exposition publique, le DNS et le certificat SSL.
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  # Utilisation du helper Helm pour générer un nom unique basé sur la release
-  name: {{ include "petite-maison-troc.fullname" . }}-frontend
+  # Nom fixe pour éviter la dépendance aux helpers Helm manquants
+  name: petite-maison-frontend
   labels:
-    # Injection des labels standards (app, version, etc.) pour la traçabilité
-    {{- include "petite-maison-troc.labels" . | nindent 4 }}
+    app: petite-maison
+    component: frontend
 spec:
   # 🔗 LIAISON : On pointe la Route vers le Service Frontend
   to:
     kind: Service
-    name: {{ include "petite-maison-troc.fullname" . }}-frontend
+    name: petite-maison-frontend
   
-  # 🚪 PORT : On cible le port nommé 'http' défini dans le Service
+  # 🚪 PORT : On cible le port du service (vérifie que ton service s'appelle 'http' ou change par 8080)
   port:
     targetPort: http
 
-  # 🔐 SÉCURITÉ (HTTPS) : Configuration de la terminaison TLS
+  # 🔐 SÉCURITÉ (HTTPS) : Configuration de la terminaison TLS (Conformité DevSecOps)
   tls:
-    # Mode 'edge' : Le certificat SSL est porté par le routeur OpenShift.
-    # Le trafic est chiffré sur le web, puis déchiffré à l'entrée du cluster.
+    # Mode 'edge' : Le certificat SSL est géré par le routeur OpenShift (Terminaison TLS).
     termination: edge
     
-    # Redirection automatique : Si l'utilisateur arrive en HTTP, 
-    # OpenShift le renvoie vers la version sécurisée HTTPS.
+    # Redirection automatique : Force l'utilisateur à passer du HTTP vers le HTTPS.
     insecureEdgeTerminationPolicy: Redirect
 {{- end -}}
