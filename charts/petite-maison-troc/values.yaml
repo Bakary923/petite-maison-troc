@@ -38,7 +38,7 @@ backend:
   serviceType: ClusterIP                                       # Service interne au cluster
 
   # URL utilisée par le frontend pour appeler l’API
-  url: "http://petite-maison.local/api"
+  url: "http://petite-maison-backend:3000/api"
 
 
 # --- 4. FRONTEND (WEB) ---
