@@ -42,16 +42,29 @@ app.use('/uploads', express.static(uploadsDir));
 // ============================================================================
 // ✅ CONFIGURATION CORS DYNAMIQUE (DÉCOUPLAGE)
 // ============================================================================
-// On autorise l'URL du frontend définie via les variables d'environnement du cluster.
-const allowedOrigin = process.env.FRONTEND_URL || 'http://localhost:3001';
+// Liste des origines autorisées (Cluster Ingress + Ports de secours pour le tunnel)
+const allowedOrigins = [
+  process.env.FRONTEND_URL,              // http://petite-maison.local
+  'http://localhost:8080',               // Tunnel Frontend (port-forward)
+  'http://localhost:3001'                // Ancien port local
+].filter(Boolean);                       // Supprime les entrées vides ou undefined
 
 app.use(cors({ 
-  origin: allowedOrigin,
+  origin: function (origin, callback) {
+    // On autorise les requêtes sans 'origin' (ex: serveurs ou outils internes)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('❌ Action bloquée par la politique CORS de l\'API'));
+    }
+  },
   credentials: true // Indispensable pour la gestion sécurisée des cookies/sessions
 }));
 
 // Log de démarrage pour faciliter le débogage dans les journaux Kubernetes (kubectl logs)
-console.log(`🛡️  CORS : Origine autorisée configurée sur -> ${allowedOrigin}`);
+console.log(`🛡️  CORS : Origines autorisées configurées ->`, allowedOrigins);
 
 // ============================================================================
 // CONNEXION BASE DE DONNÉES
