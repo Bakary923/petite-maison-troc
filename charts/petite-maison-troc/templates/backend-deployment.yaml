@@ -23,10 +23,13 @@ spec:
         - name: ghcr-secret
 
       # 🔒 OpenShift impose un user non-root
+      # ❗ IMPORTANT : ne jamais fixer runAsUser sur OpenShift
+      # OpenShift attribue automatiquement un UID autorisé
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        # ❌ SUPPRIMÉ d’ici : allowPrivilegeEscalation
+
+      # ❌ Aucun initContainer (interdit sur OpenShift Sandbox)
+      # Les permissions doivent être gérées dans ton Dockerfile
 
       containers:
         - name: api
@@ -35,16 +38,19 @@ spec:
 
           # 🔒 Sécurité container (OpenShift valide ici)
           securityContext:
-            allowPrivilegeEscalation: false   # ✅ déplacé ici
+            allowPrivilegeEscalation: false   # OK ici
 
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
 
+          # 📁 Volume persistant pour les uploads
           volumeMounts:
             - name: storage-uploads
               mountPath: /app/uploads
 
+          # 🔐 Variables d'environnement (Supabase + JWT)
           env:
+            # --- Connexion Supabase ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
 
@@ -69,12 +75,15 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: dbPassword
 
+            # --- Port interne du backend ---
             - name: PORT
               value: {{ .Values.backend.containerPort | quote }}
 
+            # --- URL du frontend (CORS) ---
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
 
+            # --- JWT secrets ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -87,6 +96,7 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
+      # 💾 Volume persistant pour les images uploadées
       volumes:
         - name: storage-uploads
           persistentVolumeClaim:

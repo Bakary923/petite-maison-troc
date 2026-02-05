@@ -23,10 +23,10 @@ spec:
         - name: ghcr-secret
 
       # 🔒 OpenShift Sandbox : impose un user non-root
+      # ❗ IMPORTANT : ne jamais fixer runAsUser sur OpenShift
+      # OpenShift attribue automatiquement un UID autorisé
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1001
-        # ❌ allowPrivilegeEscalation supprimé d’ici
 
       containers:
         - name: web
@@ -35,12 +35,14 @@ spec:
 
           # 🔒 Sécurité container (OpenShift valide ici)
           securityContext:
-            allowPrivilegeEscalation: false   # ✅ déplacé ici
+            allowPrivilegeEscalation: false   # OK ici
 
           # 🚨 IMPORTANT : OpenShift interdit les ports < 1024
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
           env:
+            # URL du backend (sera remplacée par la Route OpenShift)
+            # Cette valeur est utilisée par React au build
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}

@@ -8,7 +8,7 @@ metadata:
 
   # Tes labels d’origine, conservés tels quels
   labels:
-    app: petite-maison
+    app: frontend
     component: frontend
 
 spec:
