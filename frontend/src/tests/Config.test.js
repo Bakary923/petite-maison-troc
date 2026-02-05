@@ -1,9 +1,10 @@
 import { API_BASE_URL } from '../config';
 
 describe('⚙️ Configuration API', () => {
-  it('⚓ Doit pointer vers le port 30000 (NodePort Minikube)', () => {
-    // Vérifie que le front est correctement configuré pour l'orchestration
-    expect(API_BASE_URL).toBe('http://localhost:30000');
+  it('⚓ Doit pointer vers l\'Ingress (domaine local)', () => {
+    // On valide que le frontend utilise bien l'adresse définie dans l'Ingress
+    // au lieu de l'ancien port 30000
+    expect(API_BASE_URL).toBe('http://petite-maison.local/api');
   });
 
   it('⚓ Ne doit pas être une chaîne vide', () => {
