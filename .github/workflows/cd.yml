@@ -29,14 +29,27 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : QUALITÉ DE L'INFRASTRUCTURE (LINTING) ---
+      # --- ÉTAPE 2 : PRÉPARATION DES OUTILS (CORRECTIF) ---
+      # Technologie : Installer Actions
+      # Rôle : Installe Helm et le client OpenShift (oc) sur le runner GitHub pour piloter le cluster.
+      - name: 🛠️ Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: 🛠️ Install OpenShift CLI (oc)
+        uses: redhat-actions/oc-installer@v1
+        with:
+          oc_version: 'latest'
+
+      # --- ÉTAPE 3 : QUALITÉ DE L'INFRASTRUCTURE (LINTING) ---
       # Technologie : Helm Lint
       # Rôle : Analyse statique des fichiers YAML pour prévenir les erreurs de déploiement.
       - name: 🔍 Helm Chart Lint
         run: |
           helm lint ./charts/petite-maison-troc
 
-      # --- ÉTAPE 3 : AUTHENTIFICATION CLOUD (CORRIGÉE) ---
+      # --- ÉTAPE 4 : AUTHENTIFICATION CLOUD (CORRIGÉE) ---
       # Technologie : RedHat OpenShift Login
       # Rôle : Établit une connexion sécurisée avec le cluster via les secrets du dépôt.
       - name: 🔐 Authenticate to OpenShift
@@ -47,7 +60,7 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 4 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE ---
+      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE ---
       # Technologie : Helm upgrade --install
       # Rôle : Mise à jour atomique. Si les Pods ne démarrent pas, Helm restaure l'ancienne version.
       - name: 🏗️ Helm Upgrade & Rollback Strategy
@@ -68,19 +81,21 @@ jobs:
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
             --namespace ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : OBSERVABILITÉ POST-DÉPLOIEMENT ---
+      # --- ÉTAPE 6 : SUPERVISION ET OBSERVABILITÉ ---
       # Technologie : OpenShift CLI (oc)
-      # Rôle : Supervision immédiate des Pods, Services et Routes créés.
+      # Rôle : Vérifier l'état des ressources (Pods, Services, Routes) post-déploiement
       - name: 🩺 Check Pods Status
         run: |
           oc get pods
           oc get services
           oc get routes
 
-      # --- ÉTAPE 6 : VALIDATION FINALE (SMOKE TEST) ---
+      # --- ÉTAPE 7 : VALIDATION FINALE (SMOKE TEST) ---
       # Technologie : Curl / HTTP
       # Rôle : Prouver la disponibilité réelle du service via un test de connectivité.
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
-          # Une fois la route connue, ce test confirme le code HTTP 200 (Succès)
+          # Récupère dynamiquement l'URL de la route pour le test
+          ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
+          echo "Test de l'URL : https://$ROUTE_URL"
