@@ -29,7 +29,7 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : PRÉPARATION DES OUTILS (CORRECTIF) ---
+      # --- ÉTAPE 2 : PRÉPARATION DES OUTILS ---
       # Technologie : Installer Actions
       # Rôle : Installe Helm et le client OpenShift (oc) sur le runner GitHub pour piloter le cluster.
       - name: 🛠️ Install Helm
@@ -60,20 +60,19 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE ---
+      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE (CORRIGÉE) ---
       # Technologie : Helm upgrade --install
       # Rôle : Mise à jour atomique. Si les Pods ne démarrent pas, Helm restaure l'ancienne version.
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
             --install \
-            --atomic \
+            --rollback-on-failure \
             --wait \
             --timeout 5m0s \
             --set openshift.enabled=true \
             --set frontend.image.tag=latest \
             --set backend.image.tag=latest \
-            -f ./charts/petite-maison-troc/values.yaml \
             --set secrets.dbName="petite_maison" \
             --set secrets.dbUser="dev" \
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
