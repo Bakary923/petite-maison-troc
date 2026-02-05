@@ -3,7 +3,7 @@ name: 🚀 CD - Deploy to OpenShift
 # 触发器 (Trigger) : Le déploiement se lance après la réussite de la CI
 on:
   workflow_run:
-    workflows: ["🛠️ CI - Test & Build"] # Doit correspondre EXACTEMENT au 'name' de ta CI
+    workflows: ["CI Petite Maison DevSecOps"] # Doit correspondre EXACTEMENT au 'name' de ta CI
     types: [completed]
     branches: [main]
 
