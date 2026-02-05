@@ -60,7 +60,7 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE (CORRIGÉE) ---
+      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE (OPTIMISÉE) ---
       # Technologie : Helm upgrade --install
       # Rôle : Mise à jour atomique. Si les Pods ne démarrent pas, Helm restaure l'ancienne version.
       - name: 🏗️ Helm Upgrade & Rollback Strategy
@@ -69,14 +69,14 @@ jobs:
             --install \
             --rollback-on-failure \
             --wait \
-            --timeout 5m0s \
+            --timeout 10m0s \
             --set openshift.enabled=true \
             --set frontend.image.repository=ghcr.io/bakary923/petite-maison-troc/frontend \
             --set frontend.image.tag=latest \
             --set backend.image.repository=ghcr.io/bakary923/petite-maison-troc/backend \
             --set backend.image.tag=latest \
-            --set secrets.dbName="petite_maison" \
-            --set secrets.dbUser="dev" \
+            --set secrets.dbName=petite_maison \
+            --set secrets.dbUser=dev \
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
