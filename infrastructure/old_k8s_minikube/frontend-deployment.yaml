@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petite-maison-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: web
+          image: frontend-petite-maison:v10
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petite-maison-frontend
+spec:
+  type: LoadBalancer # ⬅️ CHANGÉ : Indispensable pour minikube tunnel
+  selector:
+    app: frontend
+  ports:
+    - port: 30001      # ⬅️ Le port externe sur ton localhost
+      targetPort: 80   # Le port interne de ton container (Nginx)

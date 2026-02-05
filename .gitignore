@@ -43,3 +43,6 @@ backend/api-service/node_modules/
 backend/api-service/dist/
 backend/api-service/build/
 backend/api-service/coverage/
+
+# Helm / Kubernetes Secrets
+values-secrets.yaml

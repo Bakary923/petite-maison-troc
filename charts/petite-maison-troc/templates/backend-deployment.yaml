@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-backend
+spec:
+  replicas: {{ .Values.backend.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      # 🛠️ INIT CONTAINER : Pour garantir les droits sur le volume existant
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: ["sh", "-c", "mkdir -p /app/uploads && chmod -R 777 /app/uploads"]
+          volumeMounts:
+            - name: storage-uploads
+              mountPath: /app/uploads
+      
+      containers:
+        - name: api
+          image: {{ .Values.backend.image }}
+          imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+          volumeMounts:
+            - name: storage-uploads
+              mountPath: /app/uploads
+          env:
+            - name: DB_HOST
+              value: {{ .Values.database.host | quote }}
+            - name: DB_NAME
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-db } }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-user } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: postgres-password } }
+            - name: DB_PORT
+              value: {{ .Values.database.port | quote }}
+            - name: PORT
+              value: {{ .Values.backend.containerPort | quote }}
+            - name: FRONTEND_URL
+              value: {{ .Values.frontend.url | quote }}
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: jwt-secret } }
+            - name: JWT_REFRESH_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Release.Name }}-secrets, key: jwt-refresh-secret } }
+      
+      volumes:
+        - name: storage-uploads
+          persistentVolumeClaim:
+            # ✅ On utilise le nom du PVC existant défini dans values.yaml (uploads-pvc)
+            claimName: {{ .Values.storage.pvcName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend
+spec:
+  type: {{ .Values.backend.serviceType | default "LoadBalancer" }}
+  selector:
+    app: backend
+  ports:
+    - port: {{ .Values.backend.servicePort }}
+      targetPort: {{ .Values.backend.containerPort }}

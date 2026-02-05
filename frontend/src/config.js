@@ -1,2 +1,4 @@
-// la variable d'environnement ou l'URL du tunnel Minikube par défaut
-export const API_BASE_URL = "http://localhost:30000";
+// config.js
+export const API_BASE_URL = window._env_?.REACT_APP_API_URL 
+                            || process.env.REACT_APP_API_URL 
+                            || "http://127.0.0.1/api"; // L'adresse de l'Ingress par défaut

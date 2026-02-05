@@ -1,0 +1,17 @@
+apiVersion: v2
+name: petite-maison-troc
+description: Chart Helm pour le déploiement orchestré (Frontend, Backend, Database) de l'application de troc.
+
+# Type d'application
+type: application
+
+# La version du "paquet" Helm (à incrémenter si tu changes la config Kubernetes)
+version: 1.0.0
+
+# La version réelle de ton code applicatif (ton tag Docker)
+appVersion: "1.0.0"
+
+# Ton nom en tant que responsable du déploiement
+maintainers:
+  - name: Bakary
+    email: badiaga.bakary13@gmail.com
