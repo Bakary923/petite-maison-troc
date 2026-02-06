@@ -60,7 +60,7 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Volumes emptyDir (Stockage en RAM)
+      # 🗂️ Volumes emptyDir (Stockage en RAM).
       volumes:
         - name: nginx-cache
           emptyDir: {}
