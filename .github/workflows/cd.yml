@@ -1,5 +1,6 @@
 name: 🚀 CD - Deploy to OpenShift
 
+# Déclenchement : Après la CI ou manuellement
 on:
   workflow_dispatch:
   workflow_run:
@@ -11,6 +12,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    # Sécurité : On ne déploie que si la CI est un succès
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     steps:
@@ -18,7 +20,7 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      # --- ÉTAPE 2 : PRÉPARATION DES OUTILS ---
+      # --- ÉTAPE 2 : INSTALLATION DES OUTILS ---
       - name: 🛠️ Install Helm
         uses: azure/setup-helm@v4
         with:
@@ -29,12 +31,12 @@ jobs:
         with:
           oc_version: 'latest'
 
-      # --- ÉTAPE 3 : QUALITÉ DE L'INFRASTRUCTURE (LINTING) ---
+      # --- ÉTAPE 3 : QUALITÉ INFRA (IaC) ---
       - name: 🔍 Helm Chart Lint
         run: |
           helm lint ./charts/petite-maison-troc
 
-      # --- ÉTAPE 4 : AUTHENTIFICATION CLOUD ---
+      # --- ÉTAPE 4 : CONNEXION AU CLUSTER ---
       - name: 🔐 Authenticate to OpenShift
         uses: redhat-actions/oc-login@v1
         with:
@@ -42,8 +44,8 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT ---
-      # Correction : utilisation du tag unique généré par la CI (${{ github.sha }})
+      # --- ÉTAPE 5 : DÉPLOIEMENT ATOMIQUE (CORRIGÉ) ---
+      # Utilisation des secrets GitHub et du tag SHA unique
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
@@ -51,28 +53,31 @@ jobs:
             --rollback-on-failure \
             --wait \
             --timeout 5m0s \
+            --namespace ${{ secrets.OPENSHIFT_NAMESPACE }} \
             --set openshift.enabled=true \
             --set frontend.image.repository=ghcr.io/bakary923/petite-maison-troc/frontend \
             --set frontend.image.tag=${{ github.sha }} \
             --set backend.image.repository=ghcr.io/bakary923/petite-maison-troc/backend \
             --set backend.image.tag=${{ github.sha }} \
-            --set secrets.dbName=petite_maison \
-            --set secrets.dbUser=dev \
+            --set secrets.dbHost=${{ secrets.DB_HOST }} \
+            --set secrets.dbPort=${{ secrets.DB_PORT }} \
+            --set secrets.dbName=${{ secrets.DB_NAME }} \
+            --set secrets.dbUser=${{ secrets.DB_USER }} \
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
+            --set secrets.dbUrl="${{ secrets.DB_URL }}" \
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
-            --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
-            --namespace ${{ secrets.OPENSHIFT_NAMESPACE }}
+            --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }}
 
-      # --- ÉTAPE 6 : SUPERVISION ---
+      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT ---
       - name: 🩺 Check Pods Status
         run: |
           oc get pods
           oc get services
           oc get routes
 
-      # --- ÉTAPE 7 : SMOKE TEST ---
+      # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ---
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
-          echo "Test de l'URL : https://$ROUTE_URL"
+          echo "L'application est disponible sur : https://$ROUTE_URL"

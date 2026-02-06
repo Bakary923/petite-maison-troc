@@ -1,11 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  # Nom unique basé sur le nom de la release Helm
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
 spec:
+  # Nombre de réplicas défini dans values.yaml
   replicas: {{ .Values.backend.replicaCount | default 1 }}
+
+  # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
+  # Recreate est indispensable ici car le volume (PVC) est en ReadWriteOnce.
+  # Cela force l'ancien Pod à s'arrêter pour libérer le volume avant que le nouveau ne démarre.
+  strategy:
+    type: Recreate 
+
   selector:
     matchLabels:
       app: backend
@@ -14,11 +23,12 @@ spec:
       labels:
         app: backend
     spec:
-      # 🔐 Indispensable pour récupérer tes images sur GitHub Packages
+      # 🔐 ImagePullSecrets : Permet à OpenShift de s'authentifier sur GHCR.io (GitHub)
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 Sécurité OpenShift : On force le mode non-root sans fixer l'UID
+      # 🔒 SecurityContext (Pod) : Standard de sécurité OpenShift Sandbox.
+      # runAsNonRoot: true interdit l'exécution en tant qu'utilisateur root (sécurité accrue).
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -26,10 +36,12 @@ spec:
 
       containers:
         - name: api
+          # Utilisation du tag SHA unique envoyé par la CI pour forcer la mise à jour
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
           
-          # 🔒 Interdit l'élévation de privilèges (requis par OpenShift)
+          # 🔒 SecurityContext (Container) : Durcissement du conteneur.
+          # On interdit l'escalade de privilèges et on supprime toutes les capacités Linux inutiles.
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -39,14 +51,14 @@ spec:
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
 
-          # 📁 Volume pour les images téléchargées
+          # 📁 VolumeMounts : On monte le stockage persistant dans le dossier /app/uploads
           volumeMounts:
             - name: storage-uploads
               mountPath: /app/uploads
 
-          # 🔐 Injection des secrets et configurations
+          # 🧬 Variables d'environnement
           env:
-            # --- Connexion Supabase (Granulaire) ---
+            # --- Connexion Supabase (Variables granulaires) ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
             - name: DB_PORT
@@ -67,21 +79,21 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: dbPassword
 
-            # --- AJOUT : URL COMPLÈTE (Optimale pour le Pooler 6543) ---
-            # C'est cette variable qui gère l'encodage du @ et du !
+            # --- ⛓️ URL de connexion complète (La plus fiable pour le Pooler 6543) ---
+            # Cette variable est utilisée en priorité par le fichier database.js
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbUrl
 
-            # --- Configuration Applicative ---
+            # --- Configuration réseau et communication ---
             - name: PORT
               value: {{ .Values.backend.containerPort | quote }}
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
 
-            # --- Secrets JWT ---
+            # --- 🔐 Sécurité JWT (Tokens) ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -93,7 +105,7 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
-      # 💾 Définition du volume de stockage
+      # 💾 Définition du volume persistant utilisé par le conteneur
       volumes:
         - name: storage-uploads
           persistentVolumeClaim:

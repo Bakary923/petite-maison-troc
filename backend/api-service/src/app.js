@@ -1,9 +1,9 @@
 /**
  * POINT D'ENTRÉE PRINCIPAL - API PETITE MAISON DU TROC
- * Architecture optimisée pour l'orchestration (Minikube / OpenShift)
+ * Architecture optimisée pour OpenShift (Reverse Proxy Nginx)
  */
 
-// Chargement des variables d'environnement (.env en local, injectées par K8s en cluster)
+// Chargement des variables d'environnement
 require('dotenv').config();
 
 const express = require('express');
@@ -15,24 +15,21 @@ const fs = require('fs');
 const helmet = require('helmet');
 const cors = require('cors');
 
-// ✅ OBSERVABILITÉ : Middleware de logs pour le monitoring des performances et erreurs
+// ✅ OBSERVABILITÉ : Middleware de logs pour le monitoring
 const logger = require('./middlewares/logger');
 
-// ✅ SÉCURITÉ (ISO 25010) : Configuration de Helmet pour protéger contre les failles XSS et Clickjacking
+// ✅ SÉCURITÉ : Configuration Helmet (Adaptée pour environnement conteneurisé)
 app.use(helmet({
-  contentSecurityPolicy: false,        // Désactivé pour faciliter le développement des ressources
+  contentSecurityPolicy: false,
   crossOriginResourcePolicy: false,
   crossOriginEmbedderPolicy: false
 }));
 
-// Activation du système de traçabilité des requêtes
 app.use(logger);
-
-// Parsing des données JSON et URL-encoded avec gestion des limites de taille
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ GESTION DES FICHIERS : Persistance des images (Dossier 'uploads')
+// ✅ GESTION DES FICHIERS : Persistance sur volume PVC
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -40,18 +37,17 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // ============================================================================
-// ✅ CONFIGURATION CORS DYNAMIQUE (DÉCOUPLAGE)
+// ✅ CONFIGURATION CORS (ALIGNEE SUR LE REVERSE PROXY)
 // ============================================================================
-// Liste des origines autorisées (Cluster Ingress + Ports de secours pour le tunnel)
 const allowedOrigins = [
-  process.env.FRONTEND_URL,              // http://petite-maison.local
-  'http://localhost:8080',               // Tunnel Frontend (port-forward)
-  'http://localhost:3001'                // Ancien port local
-].filter(Boolean);                       // Supprime les entrées vides ou undefined
+  process.env.FRONTEND_URL,      // URL de la Route OpenShift
+  'http://localhost:8080',       // Dev local (Port standard OpenShift)
+  'http://localhost:3000'        // Dev local (Port standard Node)
+].filter(Boolean);
 
 app.use(cors({ 
   origin: function (origin, callback) {
-    // On autorise les requêtes sans 'origin' (ex: serveurs ou outils internes)
+    // Autorise les requêtes sans origine (ex: serveurs ou Proxy interne Nginx)
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -60,42 +56,38 @@ app.use(cors({
       callback(new Error('❌ Action bloquée par la politique CORS de l\'API'));
     }
   },
-  credentials: true // Indispensable pour la gestion sécurisée des cookies/sessions
+  credentials: true
 }));
 
-// Log de démarrage pour faciliter le débogage dans les journaux Kubernetes (kubectl logs)
-console.log(`🛡️  CORS : Origines autorisées configurées ->`, allowedOrigins);
+console.log(`🛡️  CORS : Origines autorisées ->`, allowedOrigins);
 
 // ============================================================================
 // CONNEXION BASE DE DONNÉES
 // ============================================================================
 const pool = require('./config/database');
-app.locals.pool = pool; // Injection du pool pour accès global dans les routers
+app.locals.pool = pool;
 
 // ============================================================================
-// ARCHITECTURE DES ROUTES (MODULARITÉ)
+// ARCHITECTURE DES ROUTES
 // ============================================================================
 const authRoutes = require('./auth/auth.routes');
 const annoncesRoutes = require('./annonces/annonces.routes');
 const adminRoutes = require('./admin/admin.routes');
 
-app.use('/api/auth', authRoutes);         // Gestion identités (Register/Login/Refresh)
-app.use('/api/annonces', annoncesRoutes); // Gestion catalogue (Public & Privé)
-app.use('/api/admin', adminRoutes);       // Modération (Accès restreint aux admins)
+app.use('/api/auth', authRoutes);
+app.use('/api/annonces', annoncesRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Route de diagnostic (Health Check)
 app.get('/', (req, res) => {
   res.send("✅ API Petite Maison du Troc opérationnelle sur le cluster.");
 });
 
 // ============================================================================
-// INITIALISATION DU SERVEUR
+// INITIALISATION DU SERVEUR (PORT COHÉRENT AVEC YAML)
 // ============================================================================
-// Priorité au port injecté par l'orchestrateur (Kubernetes Service)
+// On utilise 3000 pour correspondre au Service/Deployment OpenShift
 const PORT = process.env.PORT || 3000;
 
-// ✅ CORRECTION CI : On n'écoute sur le port que si on n'est pas en mode TEST
-// Cela évite l'erreur "app.address is not a function" dans Jest/Supertest
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`🚀 Serveur backend démarré sur le port : ${PORT}`);
@@ -104,5 +96,4 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-// ✅ EXPORT : Indispensable pour que Supertest puisse charger l'application sans la lancer
 module.exports = app;

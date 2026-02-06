@@ -4,9 +4,13 @@ metadata:
   name: {{ .Release.Name }}-frontend
   labels:
     app: frontend
-
 spec:
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
+  
+  # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
+  # On utilise Recreate pour garantir une bascule propre des sessions
+  strategy:
+    type: Recreate
 
   selector:
     matchLabels:
@@ -16,38 +20,40 @@ spec:
     metadata:
       labels:
         app: frontend
-
     spec:
-      # 🔐 Permet de tirer les images GHCR privées
+      # 🔐 Indispensable pour tirer les images GHCR privées
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 OpenShift Sandbox : impose un user non-root
-      # ❗ IMPORTANT : ne jamais fixer runAsUser sur OpenShift
-      # OpenShift attribue automatiquement un UID autorisé
+      # 🔒 Sécurité Pod : Conformité OpenShift Sandbox
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: web
+          # Utilisation du tag SHA unique injecté par la CD
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
 
-          # 🔒 Sécurité container (OpenShift valide ici)
+          # 🔒 Sécurité Container : On retire toutes les capacités inutiles
           securityContext:
-            allowPrivilegeEscalation: false   # OK ici
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
 
-          # 🚨 IMPORTANT : OpenShift interdit les ports < 1024
+          # 🚨 Port 8080 : Seul autorisé pour les users non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
           env:
-            # URL du backend (sera remplacée par la Route OpenShift)
-            # Cette valeur est utilisée par React au build
+            # Injection de l'URL du backend pour le Reverse Proxy
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Correction OpenShift : Nginx doit pouvoir écrire dans plusieurs répertoires
+          # 🛠️ Correction OpenShift : Nginx doit pouvoir écrire dans ces dossiers
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -56,7 +62,7 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Volumes writable pour Nginx (évite Permission denied)
+      # 🗂️ Volumes temporaires en mémoire (évite les erreurs Permission Denied)
       volumes:
         - name: nginx-cache
           emptyDir: {}
