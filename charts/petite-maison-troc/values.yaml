@@ -49,8 +49,8 @@ frontend:
     pullPolicy: Always
 
   replicaCount: 1
-  containerPort: 80
-  servicePort: 80
+  containerPort: 8080
+  servicePort: 8080
   serviceType: ClusterIP
 
   # URL publique du site (utilisée pour les redirections, SEO, etc.)
@@ -66,7 +66,7 @@ frontend:
 #
 # On ne garde que les infos nécessaires pour injecter l’hôte Supabase.
 database:
-  host: "{{ .Values.secrets.dbHost }}"   # Hôte Supabase (ex: db.xxxxx.supabase.co)
+  host: "db.xephroaqjjpvehyonpnt.supabase.co"   # Hôte Supabase (ex: db.xxxxx.supabase.co)
   port: 5432                             # Port PostgreSQL Supabase
 
 
