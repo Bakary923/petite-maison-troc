@@ -14,7 +14,6 @@ spec:
   # On doit arrêter l'ancien Pod avant de lancer le nouveau pour libérer le disque.
   strategy:
     type: Recreate
-    rollingUpdate: null # 💡 CORRECTION : Supprime les anciens paramètres pour débloquer la CD
 
   selector:
     matchLabels:

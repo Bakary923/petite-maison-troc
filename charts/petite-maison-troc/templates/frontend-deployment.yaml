@@ -10,7 +10,6 @@ spec:
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
   strategy:
     type: Recreate
-    rollingUpdate: null # 💡 CORRECTION : Indispensable pour éviter le conflit "Forbidden"
 
   selector:
     matchLabels:
