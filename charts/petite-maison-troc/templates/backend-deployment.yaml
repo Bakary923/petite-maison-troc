@@ -4,99 +4,96 @@ metadata:
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
-
 spec:
   replicas: {{ .Values.backend.replicaCount | default 1 }}
-
   selector:
     matchLabels:
       app: backend
-
   template:
     metadata:
       labels:
         app: backend
-
     spec:
-      # 🔐 Permet de tirer les images privées depuis GHCR
+      # 🔐 Indispensable pour récupérer tes images sur GitHub Packages
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 OpenShift impose un user non-root
-      # ❗ IMPORTANT : ne jamais fixer runAsUser sur OpenShift
-      # OpenShift attribue automatiquement un UID autorisé
+      # 🔒 Sécurité OpenShift : On force le mode non-root sans fixer l'UID
       securityContext:
         runAsNonRoot: true
-
-      # ❌ Aucun initContainer (interdit sur OpenShift Sandbox)
-      # Les permissions doivent être gérées dans ton Dockerfile
+        seccompProfile:
+          type: RuntimeDefault
 
       containers:
         - name: api
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
-
-          # 🔒 Sécurité container (OpenShift valide ici)
+          
+          # 🔒 Interdit l'élévation de privilèges (requis par OpenShift)
           securityContext:
-            allowPrivilegeEscalation: false   # OK ici
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
 
           ports:
             - containerPort: {{ .Values.backend.containerPort }}
 
-          # 📁 Volume persistant pour les uploads
+          # 📁 Volume pour les images téléchargées
           volumeMounts:
             - name: storage-uploads
               mountPath: /app/uploads
 
-          # 🔐 Variables d'environnement (Supabase + JWT)
+          # 🔐 Injection des secrets et configurations
           env:
-            # --- Connexion Supabase ---
+            # --- Connexion Supabase (Granulaire) ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
-
             - name: DB_PORT
               value: {{ .Values.database.port | quote }}
-
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbName
-
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbUser
-
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbPassword
 
-            # --- Port interne du backend ---
+            # --- AJOUT : URL COMPLÈTE (Optimale pour le Pooler 6543) ---
+            # C'est cette variable qui gère l'encodage du @ et du !
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: dbUrl
+
+            # --- Configuration Applicative ---
             - name: PORT
               value: {{ .Values.backend.containerPort | quote }}
-
-            # --- URL du frontend (CORS) ---
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
 
-            # --- JWT secrets ---
+            # --- Secrets JWT ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: jwtSecret
-
             - name: JWT_REFRESH_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
-      # 💾 Volume persistant pour les images uploadées
+      # 💾 Définition du volume de stockage
       volumes:
         - name: storage-uploads
           persistentVolumeClaim:

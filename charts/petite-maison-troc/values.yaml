@@ -1,85 +1,68 @@
 # ============================================================
 # VALUES.YAML - PETITE MAISON DU TROC (MODE HYBRIDE)
 # ============================================================
-# Ce fichier contient la configuration générale du chart Helm.
-# Les secrets sensibles (mots de passe, clés JWT) doivent rester
-# dans values-secrets.yaml ou être injectés via --set dans la CD.
-# ============================================================
-
 
 # --- 1. CONFIGURATION DE LA PLATEFORME ---
-# true  = OpenShift (utilise Route)
-# false = Minikube / Kubernetes standard (utilise Ingress)
 openshift:
-  enabled: true
+  enabled: true # Active la création des Routes OpenShift
 
-
-# --- 2. SECRETS & SÉCURITÉ ---
-# Ces valeurs sont des placeholders. Les vraies valeurs viennent
-# de values-secrets.yaml ou de la pipeline GitHub Actions.
+# --- 2. SECRETS & SÉCURITÉ (Placeholders) ---
+# Les vraies valeurs sont injectées via values-secrets.yaml
 secrets:
+  dbHost: "REDACTED"
+  dbPort: "6543"
+  dbUrl: "REDACTED" # Ajouté pour supporter la chaîne de connexion complète
   dbName: "REDACTED"
   dbUser: "REDACTED"
   dbPassword: "REDACTED"
   jwtSecret: "REDACTED"
   jwtRefreshSecret: "REDACTED"
 
-
 # --- 3. BACKEND (API) ---
 backend:
   image:
-    repository: ghcr.io/bakary923/petite-maison-troc/backend   # Image backend
-    tag: latest                                                # Tag déployé
-    pullPolicy: Always                                         # Toujours pull la dernière image
-
-  replicaCount: 1                                              # Nombre de pods backend
-  containerPort: 3000                                          # Port interne du conteneur
-  servicePort: 3000                                            # Port exposé dans le Service
-  serviceType: ClusterIP                                       # Service interne au cluster
-
-  # URL utilisée par le frontend pour appeler l’API
-  url: "http://petite-maison-backend:3000/api"
-
-
-# --- 4. FRONTEND (WEB) ---
-frontend:
-  image:
-    repository: ghcr.io/bakary923/petite-maison-troc/frontend  # Image frontend
+    repository: ghcr.io/bakary923/petite-maison-troc/backend
     tag: latest
     pullPolicy: Always
 
   replicaCount: 1
+  containerPort: 3000
+  servicePort: 3000
+  serviceType: ClusterIP
+
+  # URL interne pour la communication entre pods
+  url: "http://petite-maison-backend:3000/api"
+
+# --- 4. FRONTEND (WEB) ---
+frontend:
+  image:
+    repository: ghcr.io/bakary923/petite-maison-troc/frontend
+    tag: latest
+    pullPolicy: Always
+
+  replicaCount: 1
+  # Changé de 80 à 8080 pour correspondre au Dockerfile et Nginx.conf
   containerPort: 8080
   servicePort: 8080
   serviceType: ClusterIP
 
-  # URL publique du site (utilisée pour les redirections, SEO, etc.)
+  # URL publique (Route OpenShift)
   url: "http://petite-maison.local"
 
-
-# --- 5. BASE DE DONNÉES (SUPABASE) ---
-# ⚠️ L’ancienne configuration Postgres interne est supprimée.
-# Supabase fournit la base de données, donc plus de :
-# - Deployment Postgres
-# - Service Postgres
-# - PVC Postgres
-#
-# On ne garde que les infos nécessaires pour injecter l’hôte Supabase.
+# --- 5. BASE DE DONNÉES (SUPABASE MODE POOLER) ---
+# On utilise le Transaction Pooler pour la compatibilité IPv4/OpenShift
 database:
-  host: "db.xephroaqjjpvehyonpnt.supabase.co"   # Hôte Supabase (ex: db.xxxxx.supabase.co)
-  port: 5432                             # Port PostgreSQL Supabase
-
+  host: "aws-1-eu-west-1.pooler.supabase.com" 
+  port: 6543 # Port spécifique au mode Transaction Pooler
+  name: "postgres"
 
 # --- 6. STOCKAGE PERSISTANT (UPLOADS) ---
-# Ce PVC reste nécessaire car Supabase ne gère pas tes fichiers uploads.
 storage:
-  pvcName: "uploads-pvc"                 # Nom du PVC pour les uploads
-  uploadsSize: 1Gi                       # Taille du volume
-  accessMode: ReadWriteOnce              # Mode d’accès
+  pvcName: "uploads-pvc"
+  uploadsSize: 1Gi
+  accessMode: ReadWriteOnce
 
-
-# --- 7. INGRESS (Minikube / Standard K8s) ---
-# Désactivé sur OpenShift car la Route prend le relais....
+# --- 7. INGRESS (Désactivé sur OpenShift) ---
 ingress:
   enabled: false
   className: "nginx"

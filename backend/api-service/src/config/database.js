@@ -1,37 +1,42 @@
 // Chargement des variables d'environnement (local uniquement)
-// ❗ En CI et en production (OpenShift), on NE charge PAS .env
 if (!process.env.CI && process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
 
 const { Pool } = require('pg');
 
-// Détection du mode CI / tests
-// 👉 En CI : Postgres local → PAS de SSL
-// 👉 En Production : Supabase → SSL obligatoire
 const isCI = process.env.CI === 'true' || process.env.NODE_ENV === 'test';
 
-// Connexion PostgreSQL
-// 👉 En CI : DB locale (localhost)
-// 👉 En Production : Supabase (db.xxxxx.supabase.co)
-// Supabase impose SSL, mais la CI NE LE SUPPORTE PAS → d'où la logique conditionnelle
-const pool = new Pool({
-  host: process.env.DB_HOST,          // ex: db.xxxxx.supabase.co ou localhost en CI
-  port: Number(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME,      // "postgres" pour Supabase
-  user: process.env.DB_USER,          // "postgres" pour Supabase
-  password: process.env.DB_PASSWORD,  // mot de passe Supabase ou CI
-  ssl: isCI ? false : { rejectUnauthorized: false } // ❗ CI = pas de SSL / Prod = SSL obligatoire
-});
+// --- LOGIQUE DE CONNEXION ---
+const poolConfig = process.env.DATABASE_URL 
+  ? { connectionString: process.env.DATABASE_URL } // 👈 Priorité à l'URL complète si elle existe
+  : {
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    };
 
-// Test de connexion (utile pour les logs Kubernetes et CI)
+// Ajout du SSL pour Supabase (hors CI)
+poolConfig.ssl = isCI ? false : { rejectUnauthorized: false };
+
+const pool = new Pool(poolConfig);
+
+// Test de connexion enrichi pour le débuggage
 pool
   .query('SELECT 1')
   .then(() => {
     console.log(`✅ Connexion PostgreSQL OK (mode: ${isCI ? 'CI/test' : 'production'})`);
+    console.log(`🗄️  Cible : ${process.env.DATABASE_URL ? 'DATABASE_URL' : process.env.DB_HOST}`);
   })
   .catch((err) => {
     console.error('❌ Erreur connexion PostgreSQL', err);
+    console.error('Détails de la config utilisée :', {
+      host: poolConfig.host || 'via URL',
+      port: poolConfig.port || 'via URL',
+      user: poolConfig.user || 'via URL'
+    });
   });
 
 module.exports = pool;
