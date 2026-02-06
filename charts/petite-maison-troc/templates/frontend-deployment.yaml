@@ -8,10 +8,9 @@ spec:
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
   
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # Recreate assure que l'ancienne version s'arrête proprement avant la nouvelle.
   strategy:
     type: Recreate
-    rollingUpdate: null # 💡 Correction CD : Évite les conflits de validation Kubernetes
+    rollingUpdate: null # 💡 CORRECTION : Indispensable pour éviter le conflit "Forbidden"
 
   selector:
     matchLabels:
@@ -41,16 +40,15 @@ spec:
               drop:
                 - ALL
 
-          # Port 8080 : Requis pour Nginx en mode non-root sur OpenShift
+          # Port 8080 : Requis pour un user non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
           env:
-            # 🔗 URL relative pour le Reverse Proxy Nginx
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Volumes éphémères nécessaires pour permettre à Nginx d'écrire (cache/logs)
+          # 🛠️ Nginx doit écrire dans ces dossiers temporaires (obligatoire sur OpenShift)
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -59,7 +57,7 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Utilisation de emptyDir (stockage temporaire en RAM) pour la conformité OpenShift
+      # 🗂️ Volumes emptyDir (Stockage en RAM)
       volumes:
         - name: nginx-cache
           emptyDir: {}
