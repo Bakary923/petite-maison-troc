@@ -44,8 +44,12 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
+      # --- NOUVELLE ÉTAPE : RÉCUPÉRER LE VRAI SHA DU COMMIT ---
+      - name: 🔍 Get commit SHA from CI workflow
+        run: echo "COMMIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+
       # --- ÉTAPE 5 : DÉPLOIEMENT ATOMIQUE (CORRIGÉ) ---
-      # Utilisation des secrets GitHub et du tag SHA unique
+      # Utilisation des secrets GitHub et du tag SHA unique.
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
@@ -56,9 +60,9 @@ jobs:
             --namespace ${{ secrets.OPENSHIFT_NAMESPACE }} \
             --set openshift.enabled=true \
             --set frontend.image.repository=ghcr.io/bakary923/petite-maison-troc/frontend \
-            --set frontend.image.tag=${{ github.sha }} \
+            --set frontend.image.tag=${{ env.COMMIT_SHA }} \
             --set backend.image.repository=ghcr.io/bakary923/petite-maison-troc/backend \
-            --set backend.image.tag=${{ github.sha }} \
+            --set backend.image.tag=${{ env.COMMIT_SHA }} \
             --set secrets.dbHost=${{ secrets.DB_HOST }} \
             --set secrets.dbPort=${{ secrets.DB_PORT }} \
             --set secrets.dbName=${{ secrets.DB_NAME }} \
