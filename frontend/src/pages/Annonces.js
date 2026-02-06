@@ -18,7 +18,7 @@ export default function Annonces() {
   // RÉCUPÉRATION DES DONNÉES
   const fetchPublicAnnonces = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/annonces`);
+      const res = await fetch(`${API_BASE_URL}/annonces`);
       if (!res.ok) throw new Error('Erreur chargement');
       const data = await res.json();
       setAnnonces(data.annonces || []);
@@ -28,7 +28,7 @@ export default function Annonces() {
   const fetchMyAnnonces = useCallback(async () => {
     if (!user || !accessToken || accessToken === 'null') return;
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/annonces/me`);
+      const res = await authFetch(`${API_BASE_URL}/annonces/me`);
       const data = await res.json();
       setMyAnnonces(data.annonces || []);
     } catch (err) { console.error(err); }
@@ -42,7 +42,7 @@ export default function Annonces() {
   // GESTION DE LA SAUVEGARDE
   const handleEditSave = async (annonceId) => {
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/annonces/${annonceId}`, {
+      const res = await authFetch(`${API_BASE_URL}/annonces/${annonceId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,7 +70,7 @@ export default function Annonces() {
   const handleDelete = async (id) => {
     if (!window.confirm('Voulez-vous vraiment supprimer cette annonce ?')) return;
     try {
-      const res = await authFetch(`${API_BASE_URL}/api/annonces/${id}`, { method: 'DELETE' });
+      const res = await authFetch(`${API_BASE_URL}/annonces/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setAnnonces(prev => prev.filter(a => a.id !== id));
         setMyAnnonces(prev => prev.filter(a => a.id !== id));

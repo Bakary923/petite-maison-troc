@@ -31,10 +31,10 @@ function AdminDashboard() {
       try {
         setLoading(true);
         // ✅ UTILISATION DYNAMIQUE : On remplace localhost:3000 par API_BASE_URL
-        let url = `${API_BASE_URL}/api/admin/annonces`;
+        let url = `${API_BASE_URL}/admin/annonces`;
 
         if (filter !== 'all') {
-          url = `${API_BASE_URL}/api/admin/annonces/${filter}`;
+          url = `${API_BASE_URL}/admin/annonces/${filter}`;
         }
 
         // ✅ OBSERVABILITÉ : authFetch gère les headers Authorization automatiquement
@@ -61,7 +61,7 @@ function AdminDashboard() {
   // ✅ ACTION : Validation d'une annonce (PUT)
   const handleValidate = async (id) => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}/validate`, {
+      const response = await authFetch(`${API_BASE_URL}/admin/annonces/${id}/validate`, {
         method: 'PUT'
       });
 
@@ -78,7 +78,7 @@ function AdminDashboard() {
   // ✅ ACTION : Rejet d'une annonce avec motif
   const handleReject = async (id, reason) => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}/reject`, {
+      const response = await authFetch(`${API_BASE_URL}/admin/annonces/${id}/reject`, {
         method: 'PUT',
         body: JSON.stringify({ reason })
       });
@@ -97,7 +97,7 @@ function AdminDashboard() {
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette annonce ?')) {
       try {
-        const response = await authFetch(`${API_BASE_URL}/api/admin/annonces/${id}`, {
+        const response = await authFetch(`${API_BASE_URL}/admin/annonces/${id}`, {
           method: 'DELETE'
         });
 

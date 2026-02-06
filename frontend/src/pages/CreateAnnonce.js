@@ -31,7 +31,7 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
     try {
       let res;
       // ✅ SÉCURITÉ & FLEXIBILITÉ : Construction dynamique de l'URL de l'API
-      const targetUrl = `${API_BASE_URL}/api/annonces`;
+      const targetUrl = `${API_BASE_URL}/annonces`;
 
       if (imageFile) {
         // Envoi via FormData pour le support du téléchargement d'images

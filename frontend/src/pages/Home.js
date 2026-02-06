@@ -14,7 +14,7 @@ export default function Home() {
     const fetchAnnonceCount = async () => {
       try {
         // ✅ UTILISATION DYNAMIQUE : On remplace localhost:3000 par l'URL du tunnel Minikube
-        const res = await fetch(`${API_BASE_URL}/api/annonces`);
+        const res = await fetch(`${API_BASE_URL}/annonces`);
         if (res.ok) {
           const data = await res.json();
           // Mise à jour du state avec le nombre d'annonces validées

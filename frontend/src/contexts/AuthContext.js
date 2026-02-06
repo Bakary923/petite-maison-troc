@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
 
     try {
       // ✅ APPEL DYNAMIQUE : Utilisation de API_BASE_URL configurée pour le tunnel Minikube.
-      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
     if (refreshToken && refreshToken !== 'null') {
       try {
         // ✅ APPEL DYNAMIQUE : Notification au serveur via l'URL de l'orchestrateur.
-        await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refreshToken }),
@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
   // ============================================
   const login = useCallback(async ({ email, password }) => {
     // ✅ APPEL DYNAMIQUE : Connexion vers le tunnel backend de Minikube.
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -131,7 +131,7 @@ export function AuthProvider({ children }) {
   // ============================================
   const register = useCallback(async ({ username, email, password }) => {
     // ✅ APPEL DYNAMIQUE : Création d'utilisateur via l'API orchestrée.
-    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password }),
