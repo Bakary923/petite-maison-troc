@@ -47,12 +47,20 @@ spec:
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Correction OpenShift : nginx doit pouvoir écrire dans /var/cache/nginx
+          # 🛠️ Correction OpenShift : Nginx doit pouvoir écrire dans plusieurs répertoires
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run/nginx
+            - name: nginx-tmp
+              mountPath: /tmp
 
-      # 🗂️ Volume writable pour nginx (évite Permission denied)
+      # 🗂️ Volumes writable pour Nginx (évite Permission denied)
       volumes:
         - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
           emptyDir: {}
