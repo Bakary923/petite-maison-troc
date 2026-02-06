@@ -6,7 +6,7 @@ openshift:
   enabled: true 
 
 secrets:
-  # Valeurs injectées par GitHub Secrets (CD)
+  # Valeurs injectées par GitHub Secrets (la CD)
   dbHost: "REDACTED"
   dbPort: "6543"
   dbUrl: "REDACTED"
