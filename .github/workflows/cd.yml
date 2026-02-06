@@ -1,11 +1,7 @@
 name: 🚀 CD - Deploy to OpenShift
 
-# 触发器 (Trigger) : Le déploiement se lance après la réussite de la CI ou manuellement
 on:
-  # Permet de lancer le déploiement manuellement via l'interface ou la CLI (gh workflow run)
   workflow_dispatch:
-
-  # Déclenchement automatique après le succès du workflow de CI
   workflow_run:
     workflows: ["CI Petite Maison DevSecOps"]
     types: [completed]
@@ -14,24 +10,15 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
-    # 🔗 ÉTAPE DE CONTRÔLE : Lie ce job à l'environnement 'production'
-    # Active la validation manuelle (Approval Gate) sur GitHub pour le Lead Dev.
-    environment: production 
-
-    # ✅ Condition de sécurité : On ne déploie que si les tests CI sont validés (Success)
+    environment: production
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     steps:
       # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
-      # Technologie : GitHub Actions / Checkout
-      # Rôle : Récupère les Helm Charts pour l'Infrastructure as Code (IaC).
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
       # --- ÉTAPE 2 : PRÉPARATION DES OUTILS ---
-      # Technologie : Installer Actions
-      # Rôle : Installe Helm et le client OpenShift (oc) sur le runner GitHub pour piloter le cluster.
       - name: 🛠️ Install Helm
         uses: azure/setup-helm@v4
         with:
@@ -43,26 +30,20 @@ jobs:
           oc_version: 'latest'
 
       # --- ÉTAPE 3 : QUALITÉ DE L'INFRASTRUCTURE (LINTING) ---
-      # Technologie : Helm Lint
-      # Rôle : Analyse statique des fichiers YAML pour prévenir les erreurs de déploiement.
       - name: 🔍 Helm Chart Lint
         run: |
           helm lint ./charts/petite-maison-troc
 
-      # --- ÉTAPE 4 : AUTHENTIFICATION CLOUD (CORRIGÉE) ---
-      # Technologie : RedHat OpenShift Login
-      # Rôle : Établit une connexion sécurisée avec le cluster via les secrets du dépôt.
+      # --- ÉTAPE 4 : AUTHENTIFICATION CLOUD ---
       - name: 🔐 Authenticate to OpenShift
         uses: redhat-actions/oc-login@v1
         with:
-          # Correction : Utilisation du paramètre exact 'openshift_server_url'
           openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT & STRATÉGIE ANTI-CASSE (OPTIMISÉE) ---
-      # Technologie : Helm upgrade --install
-      # Rôle : Mise à jour atomique. Si les Pods ne démarrent pas, Helm restaure l'ancienne version.
+      # --- ÉTAPE 5 : DÉPLOIEMENT ---
+      # Correction : utilisation du tag unique généré par la CI (${{ github.sha }})
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
@@ -72,9 +53,9 @@ jobs:
             --timeout 5m0s \
             --set openshift.enabled=true \
             --set frontend.image.repository=ghcr.io/bakary923/petite-maison-troc/frontend \
-            --set frontend.image.tag=latest \
+            --set frontend.image.tag=${{ github.sha }} \
             --set backend.image.repository=ghcr.io/bakary923/petite-maison-troc/backend \
-            --set backend.image.tag=latest \
+            --set backend.image.tag=${{ github.sha }} \
             --set secrets.dbName=petite_maison \
             --set secrets.dbUser=dev \
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
@@ -82,21 +63,16 @@ jobs:
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
             --namespace ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- ÉTAPE 6 : SUPERVISION ET OBSERVABILITÉ ---
-      # Technologie : OpenShift CLI (oc)
-      # Rôle : Vérifier l'état des ressources (Pods, Services, Routes) post-déploiement
+      # --- ÉTAPE 6 : SUPERVISION ---
       - name: 🩺 Check Pods Status
         run: |
           oc get pods
           oc get services
           oc get routes
 
-      # --- ÉTAPE 7 : VALIDATION FINALE (SMOKE TEST) ---
-      # Technologie : Curl / HTTP
-      # Rôle : Prouver la disponibilité réelle du service via un test de connectivité.
+      # --- ÉTAPE 7 : SMOKE TEST ---
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
-          # Récupère dynamiquement l'URL de la route pour le test
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
           echo "Test de l'URL : https://$ROUTE_URL"

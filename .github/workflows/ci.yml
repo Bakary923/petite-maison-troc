@@ -27,8 +27,6 @@ jobs:
           --health-retries 5
 
     steps:
-      # ÉTAPE 1 : Checkout (GitHub Actions)
-      # Justification : Point de départ de la traçabilité du développement.
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
@@ -37,24 +35,16 @@ jobs:
         with:
           node-version: '20'
 
-      # INITIALISATION : Schéma SQL
-      # Justification : Prépare l'environnement pour les tests d'intégration.
       - name: Initialize Database Schema
         run: |
           PGPASSWORD=password psql -h localhost -U user -d petite_maison_db -f backend/api-service/init.sql
 
-      # ÉTAPE 2 & 3 : Install & Linting Backend
-      # Justification 2 : Assure la reproductibilité (exigience de Fiabilité).
-      # Justification 3 : Vérifie la Maintenabilité (ESLint).
       - name: 2, 3. Install & Linting Backend
         run: |
           cd backend/api-service
           npm ci
           npm run lint
 
-      # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Backend
-      # Justification 4 : Valide la Capacité fonctionnelle (Jest).
-      # Justification 5 : Vérifie la fonctionnalité métier (Supertest + DB).
       - name: 4, 5. Tests Unitaires & Intégration Backend
         run: |
           cd backend/api-service
@@ -81,8 +71,6 @@ jobs:
     name: Validation Frontend
     runs-on: ubuntu-latest
     steps:
-      # ÉTAPE 1 : Checkout (GitHub Actions)
-      # Justification : Point de départ de la traçabilité du développement.
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
@@ -93,18 +81,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      # ÉTAPE 2 & 3 : Install & Linting Frontend
-      # Justification 2 : Assure la reproductibilité (Fiabilité).
-      # Justification 3 : Vérifie la Maintenabilité (normes React).
       - name: 2, 3. Install & Linting Frontend
         run: |
           cd frontend
           npm ci --legacy-peer-deps
           npm run lint --if-present
 
-      # ÉTAPE 4 & 5 : Tests Unitaires & Intégration Frontend
-      # Justification 4 : Valide la Capacité fonctionnelle (Jest).
-      # Justification 5 : Vérifie la fonctionnalité métier (Contexts & Forms).
       - name: 4, 5. Tests Unitaires & Intégration Frontend
         run: |
           cd frontend
@@ -140,12 +122,6 @@ jobs:
         with:
           path: reports
 
-      # ÉTAPE 6 : Qualité & Scan (SonarCloud)
-      # Justification : Centralise les 4 indicateurs qualité (Dette, Fiabilité, Sécurité, Couverture).
-      # OPTIMISATION FINALE :
-      # 1. Exclusion totale (sonar.exclusions) des fichiers techniques à 0% de logique métier (index, reportWebVitals, database config).
-      # 2. Exclusion des composants de structure (Navbar/Footer) pour isoler le code métier pur.
-      # 3. Exclusion des fichiers de tests et styles pour ne pas diluer le score de couverture.
       - name: 6. SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -159,26 +135,24 @@ jobs:
             -Dsonar.exclusions=frontend/src/reportWebVitals.js,backend/api-service/src/config/database.js,frontend/src/index.js,frontend/src/App.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js,backend/api-service/src/app.js,**/package-lock.json
 
       # ÉTAPE 7 : Build Image (Docker)
-      # Justification : Prépare le déploiement sur l'orchestrateur (Portabilité).
+      # Correction : utilisation d'un tag unique basé sur le commit SHA
       - name: 7. Build Backend & Frontend Images
         run: |
-          BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:latest" | tr '[:upper:]' '[:lower:]')
+          BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:${{ github.sha }}" | tr '[:upper:]' '[:lower:]')
           docker build -t $BACK_ID ./backend/api-service
           echo "BACK_IMAGE=$BACK_ID" >> $GITHUB_ENV
           
-          FRONT_ID=$(echo "ghcr.io/${{ github.repository }}/frontend:latest" | tr '[:upper:]' '[:lower:]')
+          FRONT_ID=$(echo "ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}" | tr '[:upper:]' '[:lower:]')
           docker build -t $FRONT_ID ./frontend
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
-      # ÉTAPE 8 : Scan d'image (Trivy)
-      # Justification : Répond à la consigne de "Scan de vulnérabilités".
       - name: 8. Scan Images with Trivy
         run: |
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
       # ÉTAPE 9 : Push Registry (GHCR.io)
-      # Justification : Rend l'image disponible pour le déploiement (Disponibilité).
+      # Correction : push des images taggées avec le SHA
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
