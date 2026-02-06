@@ -46,3 +46,13 @@ spec:
             # Cette valeur est utilisée par React au build
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
+
+          # 🛠️ Correction OpenShift : nginx doit pouvoir écrire dans /var/cache/nginx
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+      # 🗂️ Volume writable pour nginx (évite Permission denied)
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
