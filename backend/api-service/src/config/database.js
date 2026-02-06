@@ -34,6 +34,13 @@ poolConfig.ssl = isCI ? false : {
   rejectUnauthorized: false 
 };
 
+// ⭐ AJOUT CRITIQUE POUR OPENSHIFT + SUPABASE ⭐
+// OpenShift ne possède PAS les certificats CA de Supabase.
+// Node.js bloque donc la connexion AVANT même que pg ne prenne la main.
+// Cette ligne désactive la vérification TLS globale côté Node.
+// → C'est EXACTEMENT ce que fait ton collègue.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 // 5. Initialisation du Pool
 const pool = new Pool(poolConfig);
 
@@ -51,6 +58,7 @@ pool
     // Aide au débuggage pour le jury :
     if (err.message.includes('self-signed certificate')) {
       console.error('💡 Conseil : Vérifiez que rejectUnauthorized est bien à false.');
+      console.error('💡 Conseil : NODE_TLS_REJECT_UNAUTHORIZED doit être à 0 dans OpenShift.');
     }
   });
 
