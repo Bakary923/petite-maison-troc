@@ -8,7 +8,7 @@ openshift:
 secrets:
   # Valeurs injectées par GitHub Secrets (la CD)
   dbHost: "REDACTED"
-  dbPort: "6543"
+  dbPort: "5432"
   dbUrl: "REDACTED"
   dbName: "REDACTED"
   dbUser: "REDACTED"
@@ -45,7 +45,7 @@ frontend:
 # --- 5. BASE DE DONNÉES ---
 database:
   host: "aws-1-eu-west-1.pooler.supabase.com" 
-  port: 6543 
+  port: 5432 
   name: "postgres"
 
 # --- 6. STOCKAGE ---
