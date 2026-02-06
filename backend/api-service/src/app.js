@@ -11,6 +11,10 @@ const app = express();
 const path = require('path');
 const fs = require('fs');
 
+// 🔥 Indispensable derrière un reverse proxy (OpenShift, Nginx)
+// Permet à Express de lire correctement X-Forwarded-Proto (https)
+app.set('trust proxy', true);
+
 // Middlewares de sécurité et de partage de ressources
 const helmet = require('helmet');
 const cors = require('cors');
@@ -40,16 +44,14 @@ app.use('/uploads', express.static(uploadsDir));
 // ✅ CONFIGURATION CORS (ALIGNEE SUR LE REVERSE PROXY)
 // ============================================================================
 const allowedOrigins = [
-  process.env.FRONTEND_URL,      // URL de la Route OpenShift
-  'http://localhost:8080',       // Dev local (Port standard OpenShift)
-  'http://localhost:3000'        // Dev local (Port standard Node)
+  process.env.FRONTEND_URL,
+  'http://localhost:8080',
+  'http://localhost:3000'
 ].filter(Boolean);
 
 app.use(cors({ 
   origin: function (origin, callback) {
-    // Autorise les requêtes sans origine (ex: serveurs ou Proxy interne Nginx)
     if (!origin) return callback(null, true);
-    
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -85,7 +87,6 @@ app.get('/', (req, res) => {
 // ============================================================================
 // INITIALISATION DU SERVEUR (PORT COHÉRENT AVEC YAML)
 // ============================================================================
-// On utilise 3000 pour correspondre au Service/Deployment OpenShift
 const PORT = process.env.PORT || 3000;
 
 if (process.env.NODE_ENV !== 'test') {
