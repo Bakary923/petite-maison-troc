@@ -8,8 +8,12 @@ spec:
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
   
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
+  # RollingUpdate permet un déploiement sans coupure (zéro downtime)
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0   # Aucun pod ne doit être indisponible
+      maxSurge: 1         # Kubernetes peut créer 1 pod supplémentaire pendant l’update
 
   selector:
     matchLabels:
@@ -47,7 +51,7 @@ spec:
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Nginx doit écrire dans ces dossiers temporaires (obligatoire sur OpenShift)
+          # 🛠️ Nginx doit écrire dans ces dossiers temporaires (obligatoire sur OpenShift).
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
