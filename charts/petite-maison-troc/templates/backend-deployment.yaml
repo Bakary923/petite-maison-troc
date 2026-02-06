@@ -1,34 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # Nom unique basé sur le nom de la release Helm
+  # Nom unique pour le backend
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
 spec:
-  # Nombre de réplicas défini dans values.yaml
+  # Nombre de répliques (Pods) à lancer
   replicas: {{ .Values.backend.replicaCount | default 1 }}
 
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # Recreate est indispensable ici car le volume (PVC) est en ReadWriteOnce.
-  # Cela force l'ancien Pod à s'arrêter pour libérer le volume avant que le nouveau ne démarre.
+  # Recreate est obligatoire pour libérer le volume PVC (ReadWriteOnce) avant de relancer le nouveau Pod.
   strategy:
-    type: Recreate 
-
+    type: Recreate
+    rollingUpdate: null # 💡 Correction CD : Nettoie les anciens paramètres pour éviter l'erreur "Forbidden"
+  
   selector:
     matchLabels:
       app: backend
+
   template:
     metadata:
       labels:
         app: backend
     spec:
-      # 🔐 ImagePullSecrets : Permet à OpenShift de s'authentifier sur GHCR.io (GitHub)
+      # 🔐 Secret pour s'authentifier sur la registry GitHub (GHCR.io)
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 SecurityContext (Pod) : Standard de sécurité OpenShift Sandbox.
-      # runAsNonRoot: true interdit l'exécution en tant qu'utilisateur root (sécurité accrue).
+      # 🔒 Sécurité du Pod : Standard OpenShift (non-root)
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -36,29 +36,28 @@ spec:
 
       containers:
         - name: api
-          # Utilisation du tag SHA unique envoyé par la CI pour forcer la mise à jour
+          # Image construite par la CI avec le tag SHA unique
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
           
-          # 🔒 SecurityContext (Container) : Durcissement du conteneur.
-          # On interdit l'escalade de privilèges et on supprime toutes les capacités Linux inutiles.
+          # 🔒 Sécurité du Container : Retrait des privilèges
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
+          # Port d'écoute de l'API (aligné sur app.js)
           ports:
-            - containerPort: {{ .Values.backend.containerPort }}
+            - containerPort: {{ .Values.backend.containerPort | default 3000 }}
 
-          # 📁 VolumeMounts : On monte le stockage persistant dans le dossier /app/uploads
+          # 📁 Montage du volume persistant pour les images uploads
           volumeMounts:
             - name: storage-uploads
               mountPath: /app/uploads
 
-          # 🧬 Variables d'environnement
           env:
-            # --- Connexion Supabase (Variables granulaires) ---
+            # --- Variables de connexion Supabase ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
             - name: DB_PORT
@@ -78,22 +77,19 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbPassword
-
-            # --- ⛓️ URL de connexion complète (La plus fiable pour le Pooler 6543) ---
-            # Cette variable est utilisée en priorité par le fichier database.js
+            
+            # ⛓️ DATABASE_URL : Utilisée par database.js pour le Pooler (port 6543)
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbUrl
 
-            # --- Configuration réseau et communication ---
+            # --- Réseau & Sécurité ---
             - name: PORT
-              value: {{ .Values.backend.containerPort | quote }}
+              value: {{ .Values.backend.containerPort | default 3000 | quote }}
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
-
-            # --- 🔐 Sécurité JWT (Tokens) ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -105,7 +101,7 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
-      # 💾 Définition du volume persistant utilisé par le conteneur
+      # 💾 Définition du volume persistant (PVC)
       volumes:
         - name: storage-uploads
           persistentVolumeClaim:

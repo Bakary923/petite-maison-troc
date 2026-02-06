@@ -8,9 +8,10 @@ spec:
   replicas: {{ .Values.frontend.replicaCount | default 1 }}
   
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # On utilise Recreate pour garantir une bascule propre des sessions
+  # Recreate assure que l'ancienne version s'arrête proprement avant la nouvelle.
   strategy:
     type: Recreate
+    rollingUpdate: null # 💡 Correction CD : Évite les conflits de validation Kubernetes
 
   selector:
     matchLabels:
@@ -21,11 +22,9 @@ spec:
       labels:
         app: frontend
     spec:
-      # 🔐 Indispensable pour tirer les images GHCR privées
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 Sécurité Pod : Conformité OpenShift Sandbox
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -33,27 +32,25 @@ spec:
 
       containers:
         - name: web
-          # Utilisation du tag SHA unique injecté par la CD
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
 
-          # 🔒 Sécurité Container : On retire toutes les capacités inutiles
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
-          # 🚨 Port 8080 : Seul autorisé pour les users non-root sur OpenShift
+          # Port 8080 : Requis pour Nginx en mode non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
           env:
-            # Injection de l'URL du backend pour le Reverse Proxy
+            # 🔗 URL relative pour le Reverse Proxy Nginx
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Correction OpenShift : Nginx doit pouvoir écrire dans ces dossiers
+          # 🛠️ Volumes éphémères nécessaires pour permettre à Nginx d'écrire (cache/logs)
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -62,7 +59,7 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Volumes temporaires en mémoire (évite les erreurs Permission Denied)
+      # 🗂️ Utilisation de emptyDir (stockage temporaire en RAM) pour la conformité OpenShift
       volumes:
         - name: nginx-cache
           emptyDir: {}
