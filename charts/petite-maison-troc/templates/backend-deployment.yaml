@@ -57,16 +57,31 @@ spec:
             # --- Connexion Supabase (Secrets Helm) ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
+
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: dbUrl
+
             - name: PORT
               value: {{ .Values.backend.containerPort | default 3000 | quote }}
+
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
-            # ... (Tes autres variables JWT)
+
+            # --- 🔐 CLÉS JWT (injectées depuis le Secret Helm) ---
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: jwtSecret
+
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: jwtRefreshSecret
 
       # 💾 Liaison avec le PersistentVolumeClaim
       volumes:
