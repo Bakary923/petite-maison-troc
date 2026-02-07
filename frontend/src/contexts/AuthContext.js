@@ -130,7 +130,7 @@ export function AuthProvider({ children }) {
   // REGISTER - Création de compte
   // ============================================
   const register = useCallback(async ({ username, email, password }) => {
-    // ✅ APPEL DYNAMIQUE : Création d'utilisateur via l'API orchestrée.
+    // ✅ APPEL DYNAMIQUE : Création d'utilisateur via l'API orchestrée
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
