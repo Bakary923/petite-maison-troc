@@ -68,7 +68,7 @@ app.use(cors({
 
 // 🔥 Indispensable pour les nouvelles routes (Admin/Auth)
 // Gère les requêtes de vérification "OPTIONS" envoyées par le navigateur
-app.options('*', cors());
+app.options(/(.*)/, cors());
 
 console.log(`🛡️  CORS : Origines autorisées ->`, allowedOrigins);
 
