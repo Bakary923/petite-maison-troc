@@ -12,6 +12,8 @@ export default function Footer() {
         <div style={styles.container} className="footer-container">
           {/* TOP SECTION */}
           <div style={styles.topSection} className="footer-top-section">
+            
+            {/* COLONNE 1 : LOGO & DESCRIPTION */}
             <div style={styles.column} className="footer-column">
               <div style={styles.logoSection} className="footer-logo-wrap">
                 <div style={styles.logo}>
@@ -27,34 +29,34 @@ export default function Footer() {
               </p>
             </div>
 
-            {/* LINKS SECTION */}
+            {/* COLONNE 2 : NAVIGATION (LES LIENS POUR TES TESTS ✅) */}
             <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Navigation</h4>
               <ul style={styles.linkList}>
                 <li>
-                  <button
-                    onClick={() => navigate('/')}
-                    style={styles.link}
-                    onMouseEnter={(e) => (e.target.style.color = '#f97316')}
-                    onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
-                  >
+                  <button onClick={() => navigate('/')} style={styles.link}>
                     Accueil
                   </button>
                 </li>
                 <li>
-                  <button
-                    onClick={() => navigate('/annonces')}
-                    style={styles.link}
-                    onMouseEnter={(e) => (e.target.style.color = '#f97316')}
-                    onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
-                  >
+                  <button onClick={() => navigate('/annonces')} style={styles.link}>
                     Annonces
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/login')} style={styles.link}>
+                    Connexion
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/signup')} style={styles.link}>
+                    S'inscrire
                   </button>
                 </li>
               </ul>
             </div>
 
-            {/* INFO SECTION */}
+            {/* COLONNE 3 : INFO */}
             <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Informations</h4>
               <ul style={styles.linkList}>
@@ -63,10 +65,13 @@ export default function Footer() {
                     Nous contacter
                   </button>
                 </li>
+                <li>
+                  <button style={styles.link}>À propos</button>
+                </li>
               </ul>
             </div>
 
-            {/* SOCIALS SECTION */}
+            {/* COLONNE 4 : SOCIALS */}
             <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Suivez-nous</h4>
               <div style={styles.socialLinks} className="footer-socials">
