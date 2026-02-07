@@ -45,8 +45,8 @@ app.use('/uploads', express.static(uploadsDir));
 // ============================================================================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://la.petite.maison.epouvante.org',
-  'https://www.la.petite.maison.epouvante.org',
+  'https://la-petite-maison-epouvante.org',
+  'https://www.la-petite-maison-epouvante.org',
   'http://localhost:8080',
   'http://localhost:3000'
 ].filter(Boolean);
