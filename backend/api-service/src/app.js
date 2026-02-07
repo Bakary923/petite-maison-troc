@@ -41,25 +41,34 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // ============================================================================
-// ✅ CONFIGURATION CORS (ALIGNEE SUR LE REVERSE PROXY)
+// ✅ CONFIGURATION CORS (MISE À JOUR : DOMAINES PROD + PREFLIGHT)
 // ============================================================================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://la.petite.maison.epouvante.org',
+  'https://www.la.petite.maison.epouvante.org',
   'http://localhost:8080',
   'http://localhost:3000'
 ].filter(Boolean);
 
 app.use(cors({ 
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Autoriser si pas d'origine (ex: outils internes) ou si dans la liste
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.error(`🚫 CORS bloqué pour l'origine : ${origin}`);
       callback(new Error('❌ Action bloquée par la politique CORS de l\'API'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
 }));
+
+// 🔥 Indispensable pour les nouvelles routes (Admin/Auth)
+// Gère les requêtes de vérification "OPTIONS" envoyées par le navigateur
+app.options('*', cors());
 
 console.log(`🛡️  CORS : Origines autorisées ->`, allowedOrigins);
 
@@ -85,7 +94,7 @@ app.get('/', (req, res) => {
 });
 
 // ============================================================================
-// INITIALISATION DU SERVEUR (PORT COHÉRENT AVEC YAML)
+// INITIALISATION DU SERVEUR
 // ============================================================================
 const PORT = process.env.PORT || 3000;
 
