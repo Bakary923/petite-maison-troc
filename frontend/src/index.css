@@ -5,6 +5,15 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* AJOUTS POUR LA QUALITÉ MOBILE/ORDI */
+  overflow-x: hidden; /* Empêche le site de bouger de gauche à droite sur iPhone */
+  background-color: #0f172a; /* Ta couleur de fond sombre pour éviter les flashs blancs au chargement */
+}
+
+/* Règle d'or du Responsive : tout est calculé avec les bordures incluses */
+* {
+  box-sizing: border-box;
 }
 
 code {

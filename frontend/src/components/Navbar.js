@@ -2,58 +2,57 @@ import React, { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
-
   const handleAnnoncesClick = () => navigate('/annonces');
   const handleLoginClick = () => navigate('/login');
   const handleSignupClick = () => navigate('/signup');
-  const handleAdminClick = () => navigate('/admin');  // ← AJOUTE
+  const handleAdminClick = () => navigate('/admin');
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-
   return (
-    <nav style={styles.navbar}>
-      <div style={styles.container}>
+    <nav style={styles.navbar} className="main-navbar">
+      <div style={styles.container} className="nav-container">
+        {/* LOGO SECTION */}
         <div
           onClick={() => navigate('/')}
           style={styles.logoContainer}
+          className="nav-logo-section"
         >
           <div style={styles.logoMark} />
-          <span style={styles.logoText}>La Petite Maison Épouvante</span>
+          <span style={styles.logoText} className="nav-logo-text">
+            La Petite Maison Épouvante
+          </span>
         </div>
 
-
-        <div style={styles.menu}>
+        {/* MENU SECTION */}
+        <div style={styles.menu} className="nav-menu">
           <button
             onClick={handleAnnoncesClick}
             style={styles.navLink}
-            onMouseEnter={(e) => {
-              e.target.style.color = '#f97316';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.color = '#E5E7EB';
-            }}
+            className="nav-item"
+            onMouseEnter={(e) => (e.target.style.color = '#f97316')}
+            onMouseLeave={(e) => (e.target.style.color = '#E5E7EB')}
           >
             Annonces
           </button>
 
-
           {user ? (
-            <div style={styles.userSection}>
-              <span style={styles.username}>Bonsoir, {user.username}</span>
+            <div style={styles.userSection} className="nav-user-section">
+              <span style={styles.username} className="nav-username">
+                Bonsoir, {user.username}
+              </span>
               
-              {/* ← AJOUTE : Lien Admin si l'utilisateur est admin */}
               {user.role === 'admin' && (
                 <button
                   onClick={handleAdminClick}
                   style={styles.adminButton}
+                  className="nav-btn-admin"
                   onMouseEnter={(e) => {
                     e.target.style.borderColor = '#8b5cf6';
                     e.target.style.color = '#c4b5fd';
@@ -70,6 +69,7 @@ export default function Navbar() {
               <button
                 onClick={handleLogout}
                 style={styles.logoutButton}
+                className="nav-btn-logout"
                 onMouseEnter={(e) => {
                   e.target.style.background = 'rgba(239, 68, 68, 0.2)';
                   e.target.style.borderColor = '#ef4444';
@@ -79,11 +79,11 @@ export default function Navbar() {
                   e.target.style.borderColor = 'rgba(248, 113, 113, 0.4)';
                 }}
               >
-                Se déconnecter
+                Déconnexion
               </button>
             </div>
           ) : (
-            <div style={styles.authButtons}>
+            <div style={styles.authButtons} className="nav-auth-group">
               <button
                 onClick={handleLoginClick}
                 style={styles.secondaryButton}
@@ -102,13 +102,11 @@ export default function Navbar() {
                 onClick={handleSignupClick}
                 style={styles.primaryButton}
                 onMouseEnter={(e) => {
-                  e.target.style.background =
-                    'radial-gradient(circle at 0 0, rgba(249,115,22,0.5), rgba(249,115,22,1))';
+                  e.target.style.background = 'radial-gradient(circle at 0 0, rgba(249,115,22,0.5), rgba(249,115,22,1))';
                   e.target.style.boxShadow = '0 0 32px rgba(249,115,22,0.8)';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.background =
-                    'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))';
+                  e.target.style.background = 'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))';
                   e.target.style.boxShadow = '0 0 22px rgba(249,115,22,0.6)';
                 }}
               >
@@ -121,7 +119,6 @@ export default function Navbar() {
     </nav>
   );
 }
-
 
 const styles = {
   navbar: {
@@ -157,6 +154,7 @@ const styles = {
     background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
     boxShadow: '0 8px 24px rgba(249, 115, 22, 0.4)',
     position: 'relative',
+    flexShrink: 0,
   },
   logoText: {
     fontSize: 18,
@@ -187,8 +185,7 @@ const styles = {
     padding: '10px 24px',
     borderRadius: 999,
     border: '1px solid rgba(249, 115, 22, 0.4)',
-    background:
-      'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))',
+    background: 'radial-gradient(circle at 0 0, rgba(249,115,22,0.3), rgba(249,115,22,0.9))',
     color: '#020617',
     fontSize: 13,
     fontWeight: 600,
@@ -197,6 +194,7 @@ const styles = {
     cursor: 'pointer',
     boxShadow: '0 0 22px rgba(249,115,22,0.6)',
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
   },
   secondaryButton: {
     padding: '10px 24px',
@@ -210,6 +208,7 @@ const styles = {
     letterSpacing: '0.12em',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
   },
   userSection: {
     display: 'flex',
@@ -221,7 +220,7 @@ const styles = {
     color: '#9CA3AF',
     fontWeight: 500,
   },
-  adminButton: {  // ← AJOUTE
+  adminButton: {
     padding: '8px 16px',
     borderRadius: 999,
     border: '1px solid rgba(139, 92, 246, 0.4)',
@@ -233,6 +232,7 @@ const styles = {
     letterSpacing: '0.12em',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
   },
   logoutButton: {
     padding: '8px 16px',
@@ -246,6 +246,7 @@ const styles = {
     letterSpacing: '0.12em',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
+    whiteSpace: 'nowrap',
   },
   authButtons: {
     display: 'flex',

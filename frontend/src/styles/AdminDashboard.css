@@ -5,6 +5,7 @@
 }
 
 .admin-header {
+  /* Tes couleurs exactes */
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 30px;
@@ -50,9 +51,10 @@
   border-color: #667eea;
 }
 
+/* Grille corrigée : 400px sur PC, mais s'adapte sur mobile */
 .admin-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
   gap: 20px;
 }
 
@@ -63,24 +65,19 @@
   font-size: 1.2em;
 }
 
-.admin-error {
-  background: #f8d7da;
-  color: #721c24;
-  padding: 15px;
-  border-radius: 5px;
-  margin-bottom: 20px;
-}
-
-.admin-loading {
-  text-align: center;
-  padding: 40px;
-  color: #667eea;
-  font-size: 1.1em;
-}
-
+/* --- MEDIA QUERIES (S'active sur Mobile) --- */
 @media (max-width: 768px) {
+  .admin-dashboard {
+    padding: 10px;
+  }
+
   .admin-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Une seule colonne propre sur iPhone */
+  }
+
+  .admin-header {
+    padding: 20px;
+    text-align: center;
   }
 
   .admin-header h1 {
@@ -88,10 +85,14 @@
   }
 
   .admin-filters {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 boutons par ligne pour gagner de la place */
+    gap: 8px;
   }
 
   .admin-filters button {
     width: 100%;
+    padding: 12px 5px;
+    font-size: 0.9em;
   }
 }

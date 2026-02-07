@@ -37,7 +37,7 @@ function AdminCard({ annonce, onValidate, onReject, onDelete }) {
   return (
     <div className="admin-card">
       <div className="admin-card-header">
-        <div>
+        <div className="admin-card-header-text">
           <h3>{annonce.titre}</h3>
           <p className="author">👤 {annonce.username}</p>
         </div>
@@ -58,9 +58,11 @@ function AdminCard({ annonce, onValidate, onReject, onDelete }) {
         <div className="annonce-meta">
           <small>📅 {new Date(annonce.created_at).toLocaleDateString('fr-FR')}</small>
           {annonce.rejection_reason && (
-            <small className="rejection-reason">
-              Raison du rejet : {annonce.rejection_reason}
-            </small>
+            <div className="rejection-reason-container">
+              <small className="rejection-reason">
+                <strong>Raison du rejet :</strong> {annonce.rejection_reason}
+              </small>
+            </div>
           )}
         </div>
       </div>
@@ -99,14 +101,16 @@ function AdminCard({ annonce, onValidate, onReject, onDelete }) {
             onChange={(e) => setRejectionReason(e.target.value)}
             required
           />
-          <button type="submit">Confirmer le rejet</button>
-          <button
-            type="button"
-            className="btn-cancel"
-            onClick={() => setShowRejectForm(false)}
-          >
-            Annuler
-          </button>
+          <div className="reject-form-buttons">
+            <button type="submit" className="btn-confirm">Confirmer</button>
+            <button
+              type="button"
+              className="btn-cancel"
+              onClick={() => setShowRejectForm(false)}
+            >
+              Annuler
+            </button>
+          </div>
         </form>
       )}
     </div>

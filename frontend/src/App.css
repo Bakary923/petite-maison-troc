@@ -1,10 +1,39 @@
+/* --- 1. STRUCTURE GLOBALE ET THÈME --- */
 .App {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #0f172a; /* Ton bleu sombre fétiche */
+  color: #E5E7EB;
+}
+
+/* Conteneur principal : limite la largeur sur PC, s'adapte sur mobile */
+.main-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box; /* Crucial pour éviter les débordements */
+}
+
+/* --- 2. HEADER ET ANIMATIONS --- */
+.App-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
 .App-logo {
-  height: 40vmin;
+  height: 20vmin;
   pointer-events: none;
+  margin-bottom: 1rem;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -13,26 +42,96 @@
   }
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
 .App-link {
-  color: #61dafb;
+  color: #f97316; /* Ton orange signature */
+  text-decoration: none;
+  font-weight: bold;
 }
 
+/* --- 3. OPTIMISATION NAVBAR (MOBILE) --- */
+@media (max-width: 768px) {
+  .nav-container {
+    flex-direction: column !important;
+    padding: 12px !important;
+    gap: 12px;
+  }
+
+  .nav-logo-text {
+    font-size: 14px !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .nav-menu {
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  .nav-user-section {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px !important;
+  }
+
+  .nav-username {
+    width: 100%;
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .nav-menu button {
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* --- 4. OPTIMISATION FOOTER (MOBILE) --- */
+@media (max-width: 768px) {
+  .footer-top-section {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 32px !important;
+    text-align: center;
+  }
+
+  .footer-column {
+    align-items: center !important;
+  }
+
+  .footer-logo-wrap {
+    justify-content: center;
+  }
+
+  .footer-socials {
+    justify-content: center;
+  }
+}
+
+/* --- 5. OPTIMISATION MODALE CONTACT (MOBILE) --- */
+@media (max-width: 768px) {
+  .modal-container {
+    width: 95% !important;
+    max-height: 90vh !important;
+    top: 45% !important; /* On remonte pour éviter le clavier iPhone */
+    border-radius: 16px !important;
+  }
+
+  .modal-actions {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .btn-modal-submit, .btn-modal-cancel {
+    width: 100% !important;
+    padding: 14px !important;
+  }
+}
+
+/* --- 6. KEYFRAMES --- */
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

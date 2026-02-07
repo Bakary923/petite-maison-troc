@@ -1,3 +1,4 @@
+/* --- DESIGN DE BASE (CONSERVÉ) --- */
 .admin-card {
   background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(10px);
@@ -75,22 +76,14 @@
   color: #6B7280;
 }
 
-.rejection-reason {
-  color: #FCA5A5;
-  font-weight: bold;
-  background: rgba(239, 68, 68, 0.1);
-  padding: 8px 12px;
-  border-radius: 6px;
-  border-left: 2px solid #ef4444;
-}
-
+/* --- BOUTONS ET ACTIONS --- */
 .admin-card-actions {
   padding: 15px 20px;
   display: flex;
   gap: 8px;
   border-top: 1px solid rgba(249, 115, 22, 0.1);
   background: rgba(0, 0, 0, 0.2);
-  flex-wrap: wrap;
+  flex-wrap: wrap; /* Évite que les boutons sortent de la carte */
 }
 
 .btn {
@@ -107,42 +100,12 @@
   letter-spacing: 0.05em;
 }
 
-.btn-success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.8) 0%, rgba(34, 197, 94, 0.6) 100%);
-  color: white;
-  border: 1px solid rgba(34, 197, 94, 0.4);
-}
+/* Couleurs des boutons (Gardées à l'identique) */
+.btn-success { background: linear-gradient(135deg, rgba(34, 197, 94, 0.8) 0%, rgba(34, 197, 94, 0.6) 100%); color: white; border: 1px solid rgba(34, 197, 94, 0.4); }
+.btn-warning { background: linear-gradient(135deg, rgba(249, 115, 22, 0.8) 0%, rgba(249, 115, 22, 0.6) 100%); color: white; border: 1px solid rgba(249, 115, 22, 0.4); }
+.btn-danger { background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(239, 68, 68, 0.6) 100%); color: white; border: 1px solid rgba(239, 68, 68, 0.4); }
 
-.btn-success:hover {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(34, 197, 94, 0.8) 100%);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-  transform: translateY(-2px);
-}
-
-.btn-warning {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.8) 0%, rgba(249, 115, 22, 0.6) 100%);
-  color: white;
-  border: 1px solid rgba(249, 115, 22, 0.4);
-}
-
-.btn-warning:hover {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 1) 0%, rgba(249, 115, 22, 0.8) 100%);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
-  transform: translateY(-2px);
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(239, 68, 68, 0.6) 100%);
-  color: white;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-.btn-danger:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 1) 0%, rgba(239, 68, 68, 0.8) 100%);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-  transform: translateY(-2px);
-}
-
+/* --- FORMULAIRE DE REJET --- */
 .reject-form {
   padding: 15px 20px;
   background: rgba(139, 92, 246, 0.1);
@@ -162,72 +125,40 @@
   color: #E5E7EB;
   font-size: 0.9em;
   min-width: 150px;
-  transition: all 0.3s ease;
 }
 
-.reject-form input:focus {
-  outline: none;
-  border-color: #f97316;
-  background: rgba(15, 23, 42, 1);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
-}
-
-.reject-form button {
-  padding: 10px 14px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.85em;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.reject-form button[type="submit"] {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.8) 0%, rgba(249, 115, 22, 0.6) 100%);
-  color: white;
-  border: 1px solid rgba(249, 115, 22, 0.4);
-}
-
-.reject-form button[type="submit"]:hover {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 1) 0%, rgba(249, 115, 22, 0.8) 100%);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
-}
-
-.btn-cancel {
-  background: rgba(75, 85, 99, 0.6);
-  color: #E5E7EB;
-  border: 1px solid rgba(75, 85, 99, 0.3);
-}
-
-.btn-cancel:hover {
-  background: rgba(75, 85, 99, 0.8);
-  color: white;
-}
-
+/* --- ADAPTATION MOBILE (iPhone/Android) --- */
 @media (max-width: 768px) {
   .admin-card-header {
     flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .status-badge {
-    margin-top: 10px;
+    margin-top: 0; /* Aligné proprement via le gap */
+    font-size: 0.75em;
   }
 
   .admin-card-actions {
-    flex-direction: column;
+    flex-direction: column; /* On empile les boutons sur mobile */
+    gap: 10px;
   }
 
   .btn {
-    width: 100%;
+    width: 100%; /* Les boutons prennent toute la largeur pour être cliquables */
+    padding: 12px;
   }
 
   .reject-form {
     flex-direction: column;
   }
 
-  .reject-form input,
+  .reject-form input {
+    width: 100%;
+    min-width: 0; /* Empêche l'input de dépasser de l'écran */
+  }
+
   .reject-form button {
     width: 100%;
   }

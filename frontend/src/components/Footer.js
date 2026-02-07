@@ -9,11 +9,11 @@ export default function Footer() {
   return (
     <>
       <footer style={styles.footer}>
-        <div style={styles.container}>
+        <div style={styles.container} className="footer-container">
           {/* TOP SECTION */}
-          <div style={styles.topSection}>
-            <div style={styles.column}>
-              <div style={styles.logoSection}>
+          <div style={styles.topSection} className="footer-top-section">
+            <div style={styles.column} className="footer-column">
+              <div style={styles.logoSection} className="footer-logo-wrap">
                 <div style={styles.logo}>
                   <div style={styles.logoSquare} />
                 </div>
@@ -28,19 +28,15 @@ export default function Footer() {
             </div>
 
             {/* LINKS SECTION */}
-            <div style={styles.column}>
+            <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Navigation</h4>
               <ul style={styles.linkList}>
                 <li>
                   <button
                     onClick={() => navigate('/')}
                     style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
+                    onMouseEnter={(e) => (e.target.style.color = '#f97316')}
+                    onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
                   >
                     Accueil
                   </button>
@@ -49,104 +45,21 @@ export default function Footer() {
                   <button
                     onClick={() => navigate('/annonces')}
                     style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
+                    onMouseEnter={(e) => (e.target.style.color = '#f97316')}
+                    onMouseLeave={(e) => (e.target.style.color = '#9CA3AF')}
                   >
                     Annonces
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/login')}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
-                    Connexion
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => navigate('/signup')}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
-                    S'inscrire
                   </button>
                 </li>
               </ul>
             </div>
 
             {/* INFO SECTION */}
-            <div style={styles.column}>
+            <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Informations</h4>
               <ul style={styles.linkList}>
                 <li>
-                  <button
-                    onClick={() => {}}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
-                    À propos
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => {}}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
-                    Conditions d'utilisation
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => {}}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
-                    Politique de confidentialité
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={() => setShowContactModal(true)}
-                    style={styles.link}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#f97316';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#9CA3AF';
-                    }}
-                  >
+                  <button onClick={() => setShowContactModal(true)} style={styles.link}>
                     Nous contacter
                   </button>
                 </li>
@@ -154,78 +67,32 @@ export default function Footer() {
             </div>
 
             {/* SOCIALS SECTION */}
-            <div style={styles.column}>
+            <div style={styles.column} className="footer-column">
               <h4 style={styles.columnTitle}>Suivez-nous</h4>
-              <div style={styles.socialLinks}>
-                <a href="#" style={styles.socialButton} title="Facebook">
-                  f
-                </a>
-                <a href="#" style={styles.socialButton} title="Twitter">
-                  𝕏
-                </a>
-                <a href="#" style={styles.socialButton} title="Instagram">
-                  📷
-                </a>
-                <a href="#" style={styles.socialButton} title="Discord">
-                  💬
-                </a>
+              <div style={styles.socialLinks} className="footer-socials">
+                <a href="#" style={styles.socialButton} title="Facebook">f</a>
+                <a href="#" style={styles.socialButton} title="Twitter">𝕏</a>
+                <a href="#" style={styles.socialButton} title="Instagram">📷</a>
               </div>
             </div>
           </div>
 
-          {/* DIVIDER */}
           <div style={styles.divider} />
 
           {/* BOTTOM SECTION */}
-          <div style={styles.bottomSection}>
+          <div style={styles.bottomSection} className="footer-bottom-bar">
             <p style={styles.copyright}>
               © 2026 La Petite Maison Épouvante. Tous droits réservés.
             </p>
             <div style={styles.bottomLinks}>
-              <button
-                onClick={() => {}}
-                style={styles.bottomLink}
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#f97316';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = '#9CA3AF';
-                }}
-              >
-                Conditions
-              </button>
+              <button style={styles.bottomLink}>Conditions</button>
               <span style={styles.separator}>•</span>
-              <button
-                onClick={() => {}}
-                style={styles.bottomLink}
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#f97316';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = '#9CA3AF';
-                }}
-              >
-                Confidentialité
-              </button>
-              <span style={styles.separator}>•</span>
-              <button
-                onClick={() => {}}
-                style={styles.bottomLink}
-                onMouseEnter={(e) => {
-                  e.target.style.color = '#f97316';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.color = '#9CA3AF';
-                }}
-              >
-                Cookies
-              </button>
+              <button style={styles.bottomLink}>Confidentialité</button>
             </div>
           </div>
         </div>
       </footer>
 
-      {/* Modal de contact */}
       <ContactModal 
         isOpen={showContactModal} 
         onClose={() => setShowContactModal(false)} 
@@ -236,8 +103,7 @@ export default function Footer() {
 
 const styles = {
   footer: {
-    background:
-      'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)',
+    background: 'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)',
     borderTop: '1px solid rgba(148, 163, 184, 0.2)',
     color: '#F9FAFB',
     padding: '60px 20px 30px',

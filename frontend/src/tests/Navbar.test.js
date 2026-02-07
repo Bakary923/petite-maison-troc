@@ -74,7 +74,8 @@ describe('🧭 Navbar', () => {
     );
 
     expect(screen.getByText(/bonsoir, bakary/i)).toBeInTheDocument();
-    expect(screen.getByText(/se déconnecter/i)).toBeInTheDocument();
+    // 🎯 Mis à jour : correspond au nouveau texte "Déconnexion"
+    expect(screen.getByText(/déconnexion/i)).toBeInTheDocument();
   });
 
   // ---------------------------------------------------------
@@ -87,7 +88,8 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
-    fireEvent.click(screen.getByText(/se déconnecter/i));
+    // 🎯 Mis à jour : correspond au nouveau texte "Déconnexion"
+    fireEvent.click(screen.getByText(/déconnexion/i));
 
     expect(mockLogout).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/');
@@ -103,7 +105,7 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
-    // 🎯 On cible UNIQUEMENT le bouton Admin, pas "Bonsoir, Admin"
+    // 🎯 Cible le bouton Admin (gère l'émoji 🔐 grâce à la Regex)
     const adminButton = screen.getByRole('button', { name: /admin/i });
     expect(adminButton).toBeInTheDocument();
   });
@@ -118,9 +120,7 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
-    // 🎯 Même logique : on cible le bouton, pas le texte dans "Bonsoir, Admin"
     const adminButton = screen.getByRole('button', { name: /admin/i });
-
     fireEvent.click(adminButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/admin');
@@ -150,6 +150,7 @@ describe('🧭 Navbar', () => {
       </AuthContext.Provider>
     );
 
+    // 🎯 Cible le texte du logo (gère la casse grâce au /i)
     fireEvent.click(screen.getByText(/la petite maison épouvante/i));
     expect(mockNavigate).toHaveBeenCalledWith('/');
   });
