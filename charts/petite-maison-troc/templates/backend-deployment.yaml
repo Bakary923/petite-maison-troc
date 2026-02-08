@@ -7,7 +7,7 @@ metadata:
     app: backend
 spec:
   # Nombre de Pods défini dans les values (Sera écrasé par le HPA si activé)
-  replicas: 1 #{{ .Values.backend.replicaCount | default 1 }}
+  #replicas: 1 #{{ .Values.backend.replicaCount | default 1 }}
 
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
   # Recreate est indispensable ici car le volume (PVC) est en ReadWriteOnce.
