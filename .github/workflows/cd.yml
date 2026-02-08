@@ -72,7 +72,7 @@ jobs:
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }}
 
-      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT ---
+      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT. ---
       - name: 🩺 Check Pods Status
         run: |
           echo "Vérification des ressources..."
