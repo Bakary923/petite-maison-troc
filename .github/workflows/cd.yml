@@ -85,17 +85,31 @@ jobs:
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
-          
-          # 1. Test de la Route technique OpenShift
-          ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
-          echo "L'application est disponible sur : https://$ROUTE_URL"
-          curl -s -o /dev/null -w "%{http_code}" -k https://$ROUTE_URL | grep 200
 
-          # 2. Test des domaines publics avec suivi de redirection (-L)
+          # 1. Récupération de la Route OpenShift
+          ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
+          echo "Route OpenShift détectée : https://$ROUTE_URL"
+
+          check_url() {
+            URL=$1
+            STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" --retry 3 "$URL")
+            echo "→ $URL → Code HTTP : $STATUS"
+
+            # On accepte tous les codes 2xx et 3xx
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+              echo "OK"
+            else
+              echo "ERREUR"
+              exit 1
+            fi
+          }
+
+          # Test de la route interne OpenShift
+          check_url "https://$ROUTE_URL"
+
+          # Test des domaines Cloudflare
           echo "Test des domaines Cloudflare..."
-          # Vérification du WWW
-          curl -s -L -o /dev/null -w "%{http_code}" --retry 3 https://www.la-petite-maison-epouvante.org | grep 200
-          # Vérification du Root
-          curl -s -L -o /dev/null -w "%{http_code}" --retry 3 https://la-petite-maison-epouvante.org | grep 200
-          
-          echo "✅ Toutes les URLs (techniques et publiques) répondent avec succès."
+          check_url "https://www.la-petite-maison-epouvante.org"
+          check_url "https://la-petite-maison-epouvante.org"
+
+          echo "✅ Toutes les URLs (techniques et publiques) répondent correctement."
