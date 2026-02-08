@@ -28,6 +28,19 @@ backend:
   serviceType: ClusterIP
   # IMPORTANT : Le frontend contactera le backend via ce chemin relatif grâce au proxy Nginx
   url: "/api"
+  # --- AJOUT POUR LA MONTÉE EN CHARGE ---
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
 
 # --- 4. FRONTEND (WEB) ---
 frontend:
@@ -41,6 +54,14 @@ frontend:
   serviceType: ClusterIP
   # METS ICI TA VRAIE ROUTE (récupérée avec oc get routes)
   url: "https://petite-maison-frontend-bakary-badiaga-dev.apps.rm3.7wse.p1.openshiftapps.com"
+  # --- AJOUT POUR LE FRONTEND (STABILITÉ) ---
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
 
 # --- 5. BASE DE DONNÉES ---
 database:

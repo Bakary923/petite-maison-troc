@@ -43,6 +43,15 @@ spec:
               drop:
                 - ALL
 
+          # --- 🚀 CONFIGURATION RESSOURCES (Stabilité Frontend) ---
+          resources:
+            requests:
+              cpu: {{ .Values.frontend.resources.requests.cpu | quote }}
+              memory: {{ .Values.frontend.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.frontend.resources.limits.cpu | quote }}
+              memory: {{ .Values.frontend.resources.limits.memory | quote }}
+
           # Port 8080 : Requis pour un user non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}

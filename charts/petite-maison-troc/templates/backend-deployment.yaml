@@ -6,7 +6,7 @@ metadata:
   labels:
     app: backend
 spec:
-  # Nombre de Pods défini dans les values
+  # Nombre de Pods défini dans les values (Sera écrasé par le HPA si activé)
   replicas: {{ .Values.backend.replicaCount | default 1 }}
 
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
@@ -44,6 +44,15 @@ spec:
             capabilities:
               drop:
                 - ALL
+
+          # --- 🚀 CONFIGURATION RESSOURCES (Pour HPA / Montée en charge) ---
+          resources:
+            requests:
+              cpu: {{ .Values.backend.resources.requests.cpu | quote }}
+              memory: {{ .Values.backend.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.backend.resources.limits.cpu | quote }}
+              memory: {{ .Values.backend.resources.limits.memory | quote }}
 
           ports:
             - containerPort: {{ .Values.backend.containerPort | default 3000 }}

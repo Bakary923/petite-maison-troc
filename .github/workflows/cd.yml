@@ -75,13 +75,27 @@ jobs:
       # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT ---
       - name: 🩺 Check Pods Status
         run: |
+          echo "Vérification des ressources..."
           oc get pods
           oc get services
+          oc get hpa    # Vérification de l'autoscaler pour la montée en charge
           oc get routes
 
       # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ---
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
+          
+          # 1. Test de la Route technique OpenShift
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
           echo "L'application est disponible sur : https://$ROUTE_URL"
+          curl -s -o /dev/null -w "%{http_code}" -k https://$ROUTE_URL | grep 200
+
+          # 2. Test des domaines publics avec suivi de redirection (-L)
+          echo "Test des domaines Cloudflare..."
+          # Vérification du WWW
+          curl -s -L -o /dev/null -w "%{http_code}" --retry 3 https://www.la-petite-maison-epouvante.org | grep 200
+          # Vérification du Root
+          curl -s -L -o /dev/null -w "%{http_code}" --retry 3 https://la-petite-maison-epouvante.org | grep 200
+          
+          echo "✅ Toutes les URLs (techniques et publiques) répondent avec succès."
