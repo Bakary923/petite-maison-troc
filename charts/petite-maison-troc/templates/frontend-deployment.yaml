@@ -5,7 +5,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: {{ .Values.frontend.replicaCount | default 1 }}
+  #replicas: {{ .Values.frontend.replicaCount | default 1 }}
   
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
   # RollingUpdate permet un déploiement sans coupure (zéro downtime)
