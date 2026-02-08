@@ -22,7 +22,7 @@ backend:
     repository: ghcr.io/bakary923/petite-maison-troc/backend
     tag: latest
     pullPolicy: Always
-  replicaCount: 1
+  #replicaCount: 1
   containerPort: 3000
   servicePort: 3000
   serviceType: ClusterIP
@@ -48,7 +48,7 @@ frontend:
     repository: ghcr.io/bakary923/petite-maison-troc/frontend
     tag: latest
     pullPolicy: Always
-  replicaCount: 1
+  #replicaCount: 1
   containerPort: 8080
   servicePort: 8080
   serviceType: ClusterIP
