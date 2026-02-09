@@ -114,3 +114,4 @@ jobs:
           check_url "https://la-petite-maison-epouvante.org"
 
           echo "✅ Toutes les URLs (techniques et publiques) répondent correctement."
+
