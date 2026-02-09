@@ -81,7 +81,7 @@ jobs:
           oc get hpa    # Vérification de l'autoscaler pour la montée en charge
           oc get routes
 
-      # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ---
+      # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ----
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
