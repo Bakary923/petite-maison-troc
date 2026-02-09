@@ -90,6 +90,7 @@ jobs:
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
           echo "Route OpenShift détectée : https://$ROUTE_URL"
 
+          # Fonction de test HTTP robuste (accepte 2xx et 3xx)
           check_url() {
             URL=$1
             STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" --retry 3 "$URL")
