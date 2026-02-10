@@ -6,7 +6,7 @@ on:
 
 jobs:
   # ==========================================================
-  # JOB BACKEND : Validation de la logique API
+  # JOB BACKEND : Validation de la logique API-
   # ==========================================================
   backend-validation:
     name: Validation Backend
