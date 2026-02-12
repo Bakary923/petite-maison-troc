@@ -112,10 +112,4 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: supabaseKey
 
-      # 💾 SUPPRESSION DU VOLUME PERSISTANT
-      # On ne définit plus de volume car l'application est devenue 'Stateless'.
-      # C'est ce qui permet au HPA de fonctionner sans l'erreur 'ContainerCreating'.
-      # volumes:
-      #   - name: storage-uploads
-      #     persistentVolumeClaim:
-      #       claimName: {{ .Values.storage.pvcName }}
+    
