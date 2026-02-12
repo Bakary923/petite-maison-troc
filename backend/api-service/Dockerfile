@@ -13,7 +13,7 @@ COPY package*.json ./
 
 # Installation des dépendances de production uniquement
 # npm ci = installation déterministe, plus rapide et plus fiable
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 
 # -----------------------------------------------------------------------------

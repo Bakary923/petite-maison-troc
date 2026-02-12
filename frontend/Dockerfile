@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Installation déterministe des dépendances
-RUN npm ci
+RUN npm install
 
 # Copie du reste du code source
 COPY . .
