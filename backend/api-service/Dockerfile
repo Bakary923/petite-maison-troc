@@ -1,31 +1,46 @@
-# Image Node légère pour optimiser le temps de build et la sécurité
-FROM node:18-alpine
+# -----------------------------------------------------------------------------
+# 🏗️ ÉTAPE 1 — Installation des dépendances (sans devDependencies)
+# Multi‑stage build : permet d’avoir une image finale plus légère et plus sûre
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS deps
 
-# Définition du dossier de travail
+# Dossier de travail interne au conteneur
 WORKDIR /app
 
-# Installation des dépendances (production uniquement pour réduire la taille de l'image)
+# Copie uniquement des fichiers de dépendances
+# → Permet de tirer parti du cache Docker
 COPY package*.json ./
-RUN npm install --only=production
 
-# Copie du code source dans le conteneur
+# Installation des dépendances de production uniquement
+# npm ci = installation déterministe, plus rapide et plus fiable
+RUN npm ci --omit=dev
+
+
+# -----------------------------------------------------------------------------
+# 🚀 ÉTAPE 2 — Image finale d’exécution
+# -----------------------------------------------------------------------------
+FROM node:20-alpine
+
+# Dossier de travail
+WORKDIR /app
+
+# Copie des node_modules installés dans l’étape précédente
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copie du code source de l’application
 COPY . .
 
-# ✅ SÉCURITÉ OPENSHIFT : Création d'un utilisateur non-root (UID 1001)
-# OpenShift interdit l'exécution en tant que 'root' par sécurité.
+# -----------------------------------------------------------------------------
+# 🔐 SÉCURITÉ OPENSHIFT
+# OpenShift impose l’exécution en utilisateur non-root.
+# On crée un utilisateur dédié avec UID 1001.
+# -----------------------------------------------------------------------------
 RUN adduser -D -u 1001 appuser
 
-# 📁 SUPPRESSION DE LA LOGIQUE UPLOADS LOCALE
-# Nous ne créons plus de dossier 'uploads' ici car l'application est Stateless.
-# Les images transitent par la RAM (Multer memoryStorage) vers le Cloud.
-
-# Changement de propriétaire pour tout le dossier app
-RUN chown -R 1001:1001 /app
-
-# Exécution en utilisateur non-root pour respecter le principe du moindre privilège
+# On passe en utilisateur non-root
 USER 1001
 
-# Port d’écoute de l’API (cohérent avec values.yaml et deployment.yaml)
+# Port exposé par l’API (cohérent avec app.js et Helm)
 EXPOSE 3000
 
 # Commande de démarrage

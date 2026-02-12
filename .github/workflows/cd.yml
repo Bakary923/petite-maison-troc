@@ -70,7 +70,7 @@ jobs:
             --set secrets.dbPassword=${{ secrets.DB_PASSWORD }} \
             --set secrets.dbUrl="${{ secrets.DB_URL }}" \
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
-            --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }}
+            --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
             --set secrets.supabaseUrl=${{ secrets.SUPABASE_URL }} \
             --set secrets.supabaseKey=${{ secrets.SUPABASE_KEY }}
 
