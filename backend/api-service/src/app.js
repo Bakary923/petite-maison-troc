@@ -14,7 +14,13 @@ const path = require('path');
 
 // 🔥 Indispensable derrière un reverse proxy (OpenShift, Nginx)
 // Permet à Express de lire correctement X-Forwarded-Proto (https)
-app.set('trust proxy', true);
+// Désactive trust proxy en mode test (sinon express-rate-limit casse Jest)
+if (process.env.NODE_ENV === 'test') {
+  app.set('trust proxy', false);
+} else {
+  app.set('trust proxy', true);
+}
+
 
 // Middlewares de sécurité et de partage de ressources
 const helmet = require('helmet');
