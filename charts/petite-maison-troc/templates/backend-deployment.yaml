@@ -1,19 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # Nom unique basé sur la release Helm
+  # Nom unique basé sur la release Helm (ex: mon-projet-backend)
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
 spec:
-  # Nombre de Pods défini dans les values (Sera écrasé par le HPA si activé)
-  #replicas: 1 #{{ .Values.backend.replicaCount | default 1 }}
+  # Note : replicas est commenté car le HPA (Horizontal Pod Autoscaler) prend le relais
+  # replicas: 1 
 
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # Recreate est indispensable ici car le volume (PVC) est en ReadWriteOnce.
-  # On doit arrêter l'ancien Pod avant de lancer le nouveau pour libérer le disque.
+  # On passe en RollingUpdate (Haute Disponibilité) au lieu de Recreate.
+  # Comme on n'a plus de verrou de disque local (PVC), on peut lancer les nouveaux Pods
+  # avant de supprimer les anciens. Zéro interruption de service.
   strategy:
-    type: Recreate
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1       # Un pod supplémentaire autorisé pendant la mise à jour
+      maxUnavailable: 0 # On ne veut jamais avoir moins de pods que prévu
 
   selector:
     matchLabels:
@@ -23,11 +27,11 @@ spec:
       labels:
         app: backend
     spec:
-      # 🔐 Auth pour tirer l'image depuis GitHub Packages (GHCR)
+      # Secret pour s'authentifier sur le registre d'images GitHub (GHCR)
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 Sécurité du Pod (Standard OpenShift Sandbox)
+      # 🔒 Sécurité globale du Pod (Bonnes pratiques OpenShift)
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -38,14 +42,14 @@ spec:
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
           
-          # 🔒 Sécurité du Container (Principe du moindre privilège)
+          # 🔒 Sécurité du conteneur (Principe du moindre privilège)
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
-          # --- 🚀 CONFIGURATION RESSOURCES (Pour HPA / Montée en charge) ---
+          # --- 🚀 CONFIGURATION RESSOURCES (Essentiel pour le HPA) ---
           resources:
             requests:
               cpu: {{ .Values.backend.resources.requests.cpu | quote }}
@@ -57,13 +61,15 @@ spec:
           ports:
             - containerPort: {{ .Values.backend.containerPort | default 3000 }}
 
-          # 📁 Montage du stockage persistant (Images)
-          volumeMounts:
-            - name: storage-uploads
-              mountPath: /app/uploads
+          # 📁 SUPPRESSION DU VOLUME LOCAL (PVC RWO)
+          # On a supprimé le montage ici car il empêchait le scaling à 3 pods.
+          # Les images sont maintenant envoyées directement sur Supabase Storage (Stateless).
+          # volumeMounts:
+          #   - name: storage-uploads
+          #     mountPath: /app/uploads
 
           env:
-            # --- Connexion Supabase (Secrets Helm) ---
+            # --- Connexion BDD (Secrets Helm) ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
 
@@ -79,7 +85,7 @@ spec:
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
 
-            # --- 🔐 CLÉS JWT (injectées depuis le Secret Helm) ---
+            # --- 🔐 CLÉS JWT (Authentification) ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -92,8 +98,24 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
-      # 💾 Liaison avec le PersistentVolumeClaim
-      volumes:
-        - name: storage-uploads
-          persistentVolumeClaim:
-            claimName: {{ .Values.storage.pvcName }}
+            # --- 🔐 SDK SUPABASE (Nouveau : Stockage Stateless) ---
+            # Ces clés permettent d'uploader les images sur le cloud sans passer par le disque local
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: supabaseUrl
+
+            - name: SUPABASE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: supabaseKey
+
+      # 💾 SUPPRESSION DU VOLUME PERSISTANT
+      # On ne définit plus de volume car l'application est devenue 'Stateless'.
+      # C'est ce qui permet au HPA de fonctionner sans l'erreur 'ContainerCreating'.
+      # volumes:
+      #   - name: storage-uploads
+      #     persistentVolumeClaim:
+      #       claimName: {{ .Values.storage.pvcName }}

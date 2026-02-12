@@ -1,26 +1,32 @@
-# Image Node légère
+# Image Node légère pour optimiser le temps de build et la sécurité
 FROM node:18-alpine
 
+# Définition du dossier de travail
 WORKDIR /app
 
-# Installation des dépendances (production uniquement)
+# Installation des dépendances (production uniquement pour réduire la taille de l'image)
 COPY package*.json ./
 RUN npm install --only=production
 
-# Copie du code source
+# Copie du code source dans le conteneur
 COPY . .
 
-# Création d’un utilisateur non-root compatible OpenShift (UID 1001)
+# ✅ SÉCURITÉ OPENSHIFT : Création d'un utilisateur non-root (UID 1001)
+# OpenShift interdit l'exécution en tant que 'root' par sécurité.
 RUN adduser -D -u 1001 appuser
 
-# Préparation du dossier uploads AVANT de changer d’utilisateur
-# Très important : OpenShift utilise un UID aléatoire → il doit avoir les droits
-RUN mkdir -p uploads && chown -R 1001:1001 /app
+# 📁 SUPPRESSION DE LA LOGIQUE UPLOADS LOCALE
+# Nous ne créons plus de dossier 'uploads' ici car l'application est Stateless.
+# Les images transitent par la RAM (Multer memoryStorage) vers le Cloud.
 
-# Exécution en utilisateur non-root
+# Changement de propriétaire pour tout le dossier app
+RUN chown -R 1001:1001 /app
+
+# Exécution en utilisateur non-root pour respecter le principe du moindre privilège
 USER 1001
 
-# Port de l’API
+# Port d’écoute de l’API (cohérent avec values.yaml et deployment.yaml)
 EXPOSE 3000
 
+# Commande de démarrage
 CMD ["node", "src/app.js"]
