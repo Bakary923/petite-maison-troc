@@ -1,4 +1,4 @@
-name: CI Petite Maison DevSecOps
+name: CI Petite Maison DevSecOps Dev
 
 on:
   push:

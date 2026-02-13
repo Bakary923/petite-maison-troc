@@ -1,10 +1,10 @@
-name: 🚀 CD - Deploy to OpenShift
+name: 🚀 CD - Deploy Dev to OpenShift
 
 # Déclenchement : Après la CI ou manuellement
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ["CI Petite Maison DevSecOps"]
+    workflows: ["CI Petite Maison DevSecOps Dev"]
     types: [completed]
 
 jobs:
