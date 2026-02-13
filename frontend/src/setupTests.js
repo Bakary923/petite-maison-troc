@@ -1,3 +1,6 @@
+// --- 📌 Matchers Jest-DOM (obligatoire pour toBeInTheDocument) --- 
+import '@testing-library/jest-dom';
+
 // --- 🔧 MOCK FORM DATA POUR JEST ---
 global.FormData = class FormDataMock {
   constructor() {
