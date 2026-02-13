@@ -1,6 +1,24 @@
-import { createClient } from '@supabase/supabase-js'
+// --- 🔧 MOCK FORM DATA POUR JEST ---
+global.FormData = class FormDataMock {
+  constructor() {
+    this.fields = {};
+  }
+  append(key, value) {
+    this.fields[key] = value;
+  }
+  get(key) {
+    return this.fields[key];
+  }
+};
 
-export const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-)
+// --- 🔧 MOCK SUPABASE POUR LES TESTS ---
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({
+    storage: {
+      from: () => ({
+        upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      }),
+    },
+  }),
+}));
