@@ -14,7 +14,7 @@ global.FormData = class FormDataMock {
 };
 
 // --- MOCK DU MODULE supabaseClient.js ---
-jest.mock('../supabaseClient', () => ({
+jest.mock('./supabaseClient', () => ({
   supabase: {
     storage: {
       from: () => ({
