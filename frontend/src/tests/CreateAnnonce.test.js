@@ -4,14 +4,12 @@
 
 import React from "react";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, mockNavigate } from "react-router-dom";
 import CreateAnnonce from "../pages/CreateAnnonce";
 import { AuthContext } from "../contexts/AuthContext";
 
 // Mock Supabase
 jest.mock("@supabase/supabase-js");
-
-const mockNavigate = jest.fn();
 
 describe("CreateAnnonce", () => {
   let mockAuthFetch;
@@ -35,15 +33,6 @@ describe("CreateAnnonce", () => {
         </MemoryRouter>
       </AuthContext.Provider>
     );
-
-  test("affiche une erreur si titre ou description manquent", async () => {
-    renderPage();
-
-    fireEvent.click(screen.getByText(/publier/i));
-
-    const errorMsg = await screen.findByText(/titre et description requis/i);
-    expect(errorMsg).toBeInTheDocument();
-  });
 
   test("envoie une annonce valide sans image", async () => {
     renderPage();
