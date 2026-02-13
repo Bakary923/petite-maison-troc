@@ -6,8 +6,7 @@ import { API_BASE_URL } from '../config';
 import { supabase } from '../config/supabaseClient';
 
 export default function CreateAnnonce() {
-  // 1️⃣ On récupère accessToken depuis le contexte
-  const { authFetch, accessToken } = useContext(AuthContext);
+  const { authFetch } = useContext(AuthContext);
   const navigate = useNavigate();
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
@@ -33,33 +32,29 @@ export default function CreateAnnonce() {
     try {
       let imagePath = 'default-annonce.jpg';
 
-      // ✅ ÉTAPE 1 : UPLOAD DIRECT VERS SUPABASE (Architecture Stateless)
+      // ✅ ÉTAPE 1 : UPLOAD DIRECT VERS SUPABASE
       if (imageFile) {
         // Sécurité : Limite 5Mo
         if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
 
-        // 🛠️ SYNCHRONISATION AUTH : On dit à Supabase qui on est
-        if (accessToken) {
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: 'not-needed-here' // Le refresh est géré par ton AuthContext
-          });
-        }
-
-        // Renommage propre
+        // Renommage propre pour éviter les doublons dans le bucket
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        // Upload avec le client authentifié
+        // L'upload utilise maintenant la politique "public" du bucket
         const { data, error: uploadError } = await supabase.storage
           .from('annonces-images')
           .upload(fileName, imageFile);
 
-        if (uploadError) throw new Error(`Erreur Supabase: ${uploadError.message}`);
+        if (uploadError) {
+          console.error("Détails erreur Supabase:", uploadError);
+          throw new Error(`Erreur Stockage: ${uploadError.message}`);
+        }
+        
         imagePath = data.path; 
       }
 
-      // ✅ ÉTAPE 2 : ENVOI JSON AU BACKEND (Compatible HPA)
+      // ✅ ÉTAPE 2 : ENVOI JSON AU BACKEND (Sécurisé par ton AuthContext)
       const res = await authFetch(`${API_BASE_URL}/annonces`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -70,7 +65,7 @@ export default function CreateAnnonce() {
         }),
       });
 
-      if (!res.ok) throw new Error('Erreur lors de la création de l\'annonce');
+      if (!res.ok) throw new Error('Erreur lors de la création de l\'annonce sur le serveur');
 
       navigate('/annonces');
     } catch (err) {
@@ -88,19 +83,19 @@ export default function CreateAnnonce() {
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
             style={styles.input}
-            placeholder="Titre (min 3 car.)"
+            placeholder="Titre (ex: Maison hantée)"
             value={titre}
             onChange={(e) => setTitre(e.target.value)}
           />
           <textarea
             style={styles.textarea}
-            placeholder="Description (min 10 car.)"
+            placeholder="Décrivez les phénomènes paranormaux..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
           <div style={styles.fileGroup}>
             <label style={styles.fileLabel}>
-              {imageFile ? `📸 ${imageFile.name}` : "📎 Joindre une photo"}
+              {imageFile ? `📸 ${imageFile.name}` : "📎 Joindre une photo (Max 5Mo)"}
               <input type="file" style={{ display: 'none' }} onChange={handleFileChange} accept="image/*" />
             </label>
           </div>
@@ -116,11 +111,11 @@ export default function CreateAnnonce() {
 const styles = {
   page: { padding: '60px 20px', minHeight: '100vh', background: '#020617' },
   container: { maxWidth: 550, margin: '0 auto', background: 'rgba(15, 23, 42, 0.95)', padding: 40, borderRadius: 20, border: '1px solid #1e293b' },
-  title: { color: '#f97316', textAlign: 'center', marginBottom: 30 },
-  error: { color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, marginBottom: 20 },
+  title: { color: '#f97316', textAlign: 'center', marginBottom: 30, fontSize: '24px' },
+  error: { color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, marginBottom: 20, textAlign: 'center' },
   form: { display: 'flex', flexDirection: 'column', gap: 20 },
-  input: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white' },
-  textarea: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white', minHeight: 120 },
-  fileLabel: { padding: 15, border: '2px dashed #f97316', borderRadius: 12, color: '#f97316', textAlign: 'center', cursor: 'pointer', display: 'block' },
-  submitButton: { padding: 16, background: '#f97316', color: 'white', border: 'none', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 16 }
+  input: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white', fontSize: '16px' },
+  textarea: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white', minHeight: 120, fontSize: '16px', resize: 'vertical' },
+  fileLabel: { padding: 15, border: '2px dashed #f97316', borderRadius: 12, color: '#f97316', textAlign: 'center', cursor: 'pointer', display: 'block', transition: '0.3s' },
+  submitButton: { padding: 16, background: '#f97316', color: 'white', border: 'none', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 16, transition: '0.3s' }
 };
