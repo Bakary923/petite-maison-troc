@@ -1,7 +1,6 @@
-// --- 📌 Matchers Jest-DOM (obligatoire pour toBeInTheDocument) --- 
 import '@testing-library/jest-dom';
 
-// --- 🔧 MOCK FORM DATA POUR JEST ---
+// --- MOCK FORM DATA ---
 global.FormData = class FormDataMock {
   constructor() {
     this.fields = {};
@@ -14,7 +13,7 @@ global.FormData = class FormDataMock {
   }
 };
 
-// --- 🔧 MOCK SUPABASE POUR LES TESTS ---
+// --- MOCK SUPABASE v2 ---
 jest.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     storage: {
@@ -22,6 +21,9 @@ jest.mock('@supabase/supabase-js', () => ({
         upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
         remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
       }),
+    },
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: '123' } } }),
     },
   }),
 }));
