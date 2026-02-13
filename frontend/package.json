@@ -21,6 +21,11 @@
     "test": "react-scripts test --watchAll=false --ci --coverage --transformIgnorePatterns \"node_modules/(?!react-router-dom|@remix-run|@babel/runtime)/\"",
     "lint": "eslint src"
   },
+  "jest": {
+    "moduleNameMapper": {
+      "^@supabase/supabase-js$": "<rootDir>/src/__mocks__/@supabase/supabase-js.js"
+    }
+  },
   "eslintConfig": {
     "extends": [
       "react-app",
