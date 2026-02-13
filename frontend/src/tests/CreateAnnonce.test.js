@@ -4,19 +4,17 @@
 
 import React from "react";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
 import CreateAnnonce from "../pages/CreateAnnonce";
 import { AuthContext } from "../contexts/AuthContext";
 
 // Mock Supabase
 jest.mock("@supabase/supabase-js");
 
-// Mock navigate()
+// Mock navigate() — mais on NE mock PAS react-router-dom ici
 const mockNavigate = jest.fn();
-jest.mock("react-router-dom", () => ({
-  ...jest.requireActual("react-router-dom"),
-  useNavigate: () => mockNavigate
-}));
+
+// On utilise MemoryRouter depuis le mock global dans __mocks__
+import { MemoryRouter } from "react-router-dom";
 
 describe("CreateAnnonce", () => {
   const mockAuthFetch = jest.fn(() =>
