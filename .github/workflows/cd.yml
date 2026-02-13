@@ -6,14 +6,18 @@ on:
   workflow_run:
     workflows: ["CI Petite Maison DevSecOps"]
     types: [completed]
-    branches: [dev]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    # Sécurité : On ne déploie que si la CI est un succès
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    # Sécurité : On ne déploie que si la CI est un succès ET sur la branche dev
+    if: >
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'dev') ||
+      github.event_name == 'workflow_dispatch'
 
     steps:
       # --- ÉTAPE 1 : RÉCUPÉRATION DU CODE ---
@@ -44,12 +48,11 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- NOUVELLE ÉTAPE : RÉCUPÉRER LE VRAI SHA DU COMMIT ---
+      # --- ÉTAPE 5 : RÉCUPÉRER LE SHA DU COMMIT CI ---
       - name: 🔍 Get commit SHA from CI workflow
         run: echo "COMMIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT ATOMIQUE (CORRIGÉ) ---
-      # Utilisation des secrets GitHub et du tag SHA unique.
+      # --- ÉTAPE 6 : DÉPLOIEMENT ATOMIQUE ---
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
@@ -74,31 +77,28 @@ jobs:
             --set secrets.supabaseUrl=${{ secrets.SUPABASE_URL }} \
             --set secrets.supabaseKey=${{ secrets.SUPABASE_KEY }}
 
-      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT. ---
+      # --- ÉTAPE 7 : SUPERVISION ---
       - name: 🩺 Check Pods Status
         run: |
           echo "Vérification des ressources..."
           oc get pods
           oc get services
-          oc get hpa    # Vérification de l'autoscaler pour la montée en charge
+          oc get hpa
           oc get routes
 
-      # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ---
+      # --- ÉTAPE 8 : SMOKE TEST ---
       - name: 🌐 Smoke Test (Vérification URL)
         run: |
           echo "Vérification du déploiement..."
 
-          # 1. Récupération de la Route OpenShift
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
           echo "Route OpenShift détectée : https://$ROUTE_URL"
 
-          # Fonction de test HTTP robuste (accepte 2xx et 3xx)
           check_url() {
             URL=$1
             STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" --retry 3 "$URL")
             echo "→ $URL → Code HTTP : $STATUS"
 
-            # On accepte tous les codes 2xx et 3xx
             if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
               echo "OK"
             else
@@ -107,13 +107,10 @@ jobs:
             fi
           }
 
-          # Test de la route interne OpenShift
           check_url "https://$ROUTE_URL"
 
-          # Test des domaines Cloudflare
           echo "Test des domaines Cloudflare..."
           check_url "https://www.la-petite-maison-epouvante.org"
           check_url "https://la-petite-maison-epouvante.org"
 
-          echo "✅ Toutes les URLs (techniques et publiques) répondent correctement."
-
+          echo "✅ Toutes les URLs répondent correctement."
