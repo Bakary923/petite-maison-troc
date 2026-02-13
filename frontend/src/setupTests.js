@@ -13,17 +13,26 @@ global.FormData = class FormDataMock {
   }
 };
 
-// --- MOCK SUPABASE v2 ---
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({
+// --- MOCK DU MODULE supabaseClient.js ---
+jest.mock('../supabaseClient', () => ({
+  supabase: {
     storage: {
       from: () => ({
-        upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
-        remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      }),
+        upload: jest.fn().mockResolvedValue({
+          data: { path: 'fake/path.png' },
+          error: null
+        }),
+        remove: jest.fn().mockResolvedValue({
+          data: {},
+          error: null
+        })
+      })
     },
     auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: { id: '123' } } }),
-    },
-  }),
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: { id: '123', email: 'test@test.com' } },
+        error: null
+      })
+    }
+  }
 }));
