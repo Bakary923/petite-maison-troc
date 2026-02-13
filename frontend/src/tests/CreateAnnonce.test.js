@@ -4,25 +4,28 @@
 
 import React from "react";
 import { render, fireEvent, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom"; // <-- IMPORT EN HAUT
+import { MemoryRouter } from "react-router-dom";
 import CreateAnnonce from "../pages/CreateAnnonce";
 import { AuthContext } from "../contexts/AuthContext";
 
 // Mock Supabase
 jest.mock("@supabase/supabase-js");
 
-// Mock navigate() — mais on NE mock PAS react-router-dom ici
 const mockNavigate = jest.fn();
 
-// MemoryRouter vient du mock global dans __mocks__
-
 describe("CreateAnnonce", () => {
-  const mockAuthFetch = jest.fn(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({ message: "ok" })
-    })
-  );
+  let mockAuthFetch;
+
+  beforeEach(() => {
+    mockAuthFetch = jest.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ message: "ok" })
+      })
+    );
+
+    mockNavigate.mockClear();
+  });
 
   const renderPage = () =>
     render(
