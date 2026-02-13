@@ -6,7 +6,7 @@ on:
 
 jobs:
   # ==========================================================
-  # JOB BACKEND : Validation de la logique API-
+  # JOB BACKEND : Validation de la logique API
   # ==========================================================
   backend-validation:
     name: Validation Backend
@@ -134,16 +134,27 @@ jobs:
             -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/*.scss,**/__mocks__/**
             -Dsonar.exclusions=frontend/src/reportWebVitals.js,backend/api-service/src/config/database.js,frontend/src/index.js,frontend/src/App.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js,backend/api-service/src/app.js,**/package-lock.json
 
-      # ÉTAPE 7 : Build Image (Docker)
-      # Correction : utilisation d'un tag unique basé sur le commit SHA
+      # --- ÉTAPE 7 : BUILD DES IMAGES DOCKER ---
+      # ✅ Ajout des --build-arg pour injecter les secrets REACT_APP dans le Frontend
       - name: 7. Build Backend & Frontend Images
         run: |
-          BACK_ID=$(echo "ghcr.io/${{ github.repository }}/backend:${{ github.sha }}" | tr '[:upper:]' '[:lower:]')
+          # Mise en minuscules du nom du repo pour éviter les erreurs de registre
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          
+          # IDs des images avec SHA unique
+          BACK_ID="ghcr.io/${REPO_LOWER}/backend:${{ github.sha }}"
+          FRONT_ID="ghcr.io/${REPO_LOWER}/frontend:${{ github.sha }}"
+          
+          # Build Backend
           docker build -t $BACK_ID ./backend/api-service
           echo "BACK_IMAGE=$BACK_ID" >> $GITHUB_ENV
           
-          FRONT_ID=$(echo "ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}" | tr '[:upper:]' '[:lower:]')
-          docker build -t $FRONT_ID ./frontend
+          # Build Frontend (Inclusion des variables REACT_APP via build-args)
+          docker build \
+            --build-arg REACT_APP_SUPABASE_URL="${{ secrets.REACT_APP_SUPABASE_URL }}" \
+            --build-arg REACT_APP_SUPABASE_KEY="${{ secrets.REACT_APP_SUPABASE_KEY }}" \
+            --build-arg REACT_APP_API_URL="https://la-petite-maison-epouvante.org/api" \
+            -t $FRONT_ID ./frontend
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
       - name: 8. Scan Images with Trivy
@@ -151,8 +162,7 @@ jobs:
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
           docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
 
-      # ÉTAPE 9 : Push Registry (GHCR.io)
-      # Correction : push des images taggées avec le SHA
+      # --- ÉTAPE 9 : PUSH SUR LE REGISTRE ---
       - name: 9. Login & Push to Registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin

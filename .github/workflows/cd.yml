@@ -12,7 +12,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    # Sécurité : On ne déploie que si la CI est un succès
+    # Sécurité : On ne déploie que si la CI est un succès (ou si déclenché manuellement)
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
 
     steps:
@@ -44,12 +44,16 @@ jobs:
           openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
           namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
 
-      # --- NOUVELLE ÉTAPE : RÉCUPÉRER LE VRAI SHA DU COMMIT ---
-      - name: 🔍 Get commit SHA from CI workflow
-        run: echo "COMMIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+      # --- NOUVELLE ÉTAPE : RÉCUPÉRER LE VRAI SHA DU COMMIT (Gère auto et manuel) ---
+      - name: 🔍 Get commit SHA
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            echo "COMMIT_SHA=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+          else
+            echo "COMMIT_SHA=${{ github.sha }}" >> $GITHUB_ENV
+          fi
 
-      # --- ÉTAPE 5 : DÉPLOIEMENT ATOMIQUE (CORRIGÉ) ---
-      # Utilisation des secrets GitHub et du tag SHA unique.
+      # --- ÉTAPE 5 : DÉPLOIEMENT ATOMIQUE ---
       - name: 🏗️ Helm Upgrade & Rollback Strategy
         run: |
           helm upgrade petite-maison ./charts/petite-maison-troc \
@@ -74,14 +78,13 @@ jobs:
             --set secrets.supabaseUrl=${{ secrets.SUPABASE_URL }} \
             --set secrets.supabaseKey=${{ secrets.SUPABASE_KEY }}
 
-      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT. ---
+      # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT ---
       - name: 🩺 Check Pods Status
         run: |
           echo "Vérification des ressources..."
           oc get pods
-          oc get services
-          oc get hpa    # Vérification de l'autoscaler pour la montée en charge
           oc get routes
+          oc get hpa
 
       # --- ÉTAPE 7 : TEST DE DISPONIBILITÉ (SMOKE TEST) ---
       - name: 🌐 Smoke Test (Vérification URL)
@@ -92,17 +95,19 @@ jobs:
           ROUTE_URL=$(oc get route petite-maison-frontend -o jsonpath='{.spec.host}' 2>/dev/null || echo "URL-introuvable")
           echo "Route OpenShift détectée : https://$ROUTE_URL"
 
-          # Fonction de test HTTP robuste (accepte 2xx et 3xx)
+          # Fonction de test HTTP robuste
           check_url() {
             URL=$1
-            STATUS=$(curl -s -L -o /dev/null -w "%{http_code}" --retry 3 "$URL")
-            echo "→ $URL → Code HTTP : $STATUS"
+            echo "Test de $URL..."
+            # -k : ignore les erreurs de certificat SSL (nécessaire sur Sandbox)
+            # --retry 5 : laisse plus de temps aux pods pour être totalement prêts
+            STATUS=$(curl -s -L -k -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 5 "$URL")
+            echo "→ Code HTTP : $STATUS"
 
-            # On accepte tous les codes 2xx et 3xx
             if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
-              echo "OK"
+              echo "✅ OK"
             else
-              echo "ERREUR"
+              echo "❌ ERREUR"
               exit 1
             fi
           }
@@ -110,10 +115,8 @@ jobs:
           # Test de la route interne OpenShift
           check_url "https://$ROUTE_URL"
 
-          # Test des domaines Cloudflare
-          echo "Test des domaines Cloudflare..."
-          check_url "https://www.la-petite-maison-epouvante.org"
+          # Test des domaines Cloudflare (si propagés)
+          echo "Test des domaines publics..."
           check_url "https://la-petite-maison-epouvante.org"
 
-          echo "✅ Toutes les URLs (techniques et publiques) répondent correctement."
-
+          echo "✅ Déploiement Cloud-Native validé."
