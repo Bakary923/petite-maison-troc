@@ -5,8 +5,7 @@ const authMiddleware = require('../middlewares/auth');
 const { body, validationResult } = require('express-validator');
 
 /* -----------------------------------------------------------
-   HELPER : URL Publique avec correction du "/"
-   ⚠️ Utilise 'ANNONCES-IMAGES' en MAJUSCULES
+   HELPER : URL Publique
 ----------------------------------------------------------- */
 const toImageUrl = (path) => {
   if (!path || path === 'default-annonce.jpg') return '/default-annonce.jpg';
@@ -14,10 +13,19 @@ const toImageUrl = (path) => {
   return data.publicUrl;
 };
 
-// Validation compatible Jest
+/* -----------------------------------------------------------
+   VALIDATION EXPRESS-VALIDATOR (alignée avec les tests)
+----------------------------------------------------------- */
 const validateAnnonce = [
-  body('titre').trim().notEmpty().withMessage('Le titre est requis').isLength({ min: 3 }),
-  body('description').trim().isLength({ min: 10 }).withMessage('La description doit faire au moins 10 caractères'),
+  body('titre')
+    .trim()
+    .notEmpty().withMessage('Le titre est requis')
+    .isLength({ min: 3, max: 100 }).withMessage('Le titre doit faire entre 3 et 100 caractères'),
+
+  body('description')
+    .trim()
+    .isLength({ min: 10, max: 500 }).withMessage('La description doit faire entre 10 et 500 caractères'),
+
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -25,22 +33,52 @@ const validateAnnonce = [
   }
 ];
 
-// GET ALL
+/* -----------------------------------------------------------
+   GET /api/annonces  (public)
+----------------------------------------------------------- */
 router.get('/', async (req, res) => {
   try {
     const pool = req.app.locals.pool;
-    const result = await pool.query("SELECT * FROM annonces WHERE status = 'validated' ORDER BY created_at DESC");
-    const annonces = result.rows.map(row => ({ ...row, image: toImageUrl(row.image) }));
+    const result = await pool.query(
+      "SELECT * FROM annonces WHERE status = 'validated' ORDER BY created_at DESC"
+    );
+
+    const annonces = result.rows.map(row => ({
+      ...row,
+      image: toImageUrl(row.image)
+    }));
+
     res.json({ annonces });
-  } catch (err) { res.status(500).json({ error: 'Erreur serveur' }); }
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
 
-// POST (STATLESS)
+/* -----------------------------------------------------------
+   GET /api/annonces/me  (privé)
+----------------------------------------------------------- */
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.locals.pool;
+    const result = await pool.query(
+      "SELECT * FROM annonces WHERE user_id = $1 ORDER BY created_at DESC",
+      [req.user.id]
+    );
+
+    res.json({ annonces: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/* -----------------------------------------------------------
+   POST /api/annonces  (privé)
+----------------------------------------------------------- */
 router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
     const { titre, description, image } = req.body;
-    
+
     const imagePath = image || 'default-annonce.jpg';
 
     const query = `
@@ -48,11 +86,20 @@ router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
       VALUES ($1, $2, $3, $4, 'validated')
       RETURNING *
     `;
-    const result = await pool.query(query, [titre, description, imagePath, req.user.id]);
+
+    const result = await pool.query(query, [
+      titre,
+      description,
+      imagePath,
+      req.user.id
+    ]);
 
     res.status(201).json({
       message: 'Annonce créée',
-      annonce: { ...result.rows[0], image: toImageUrl(result.rows[0].image) }
+      annonce: {
+        ...result.rows[0],
+        image: toImageUrl(result.rows[0].image)
+      }
     });
   } catch (err) {
     console.error("[POST ERROR]", err);
@@ -60,24 +107,59 @@ router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
   }
 });
 
-// DELETE
+/* -----------------------------------------------------------
+   PUT /api/annonces/:id  (privé)
+----------------------------------------------------------- */
+router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
+  try {
+    const pool = req.app.locals.pool;
+    const { id } = req.params;
+    const { titre, description, image } = req.body;
+
+    const check = await pool.query('SELECT * FROM annonces WHERE id = $1', [id]);
+    if (check.rows.length === 0)
+      return res.status(404).json({ error: 'Non trouvée' });
+
+    await pool.query(
+      'UPDATE annonces SET titre=$1, description=$2, image=$3 WHERE id=$4',
+      [titre, description, image || check.rows[0].image, id]
+    );
+
+    res.json({ message: 'Mise à jour OK' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur mise à jour' });
+  }
+});
+
+/* -----------------------------------------------------------
+   DELETE /api/annonces/:id  (privé)
+----------------------------------------------------------- */
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
     const { id } = req.params;
-    const check = await pool.query('SELECT user_id, image FROM annonces WHERE id = $1', [id]);
 
-    if (check.rows.length === 0) return res.status(404).json({ error: 'Non trouvée' });
-    if (check.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Interdit' });
+    const check = await pool.query(
+      'SELECT user_id, image FROM annonces WHERE id = $1',
+      [id]
+    );
 
-    // Nettoyage Cloud (MAJUSCULES)
+    if (check.rows.length === 0)
+      return res.status(404).json({ error: 'Non trouvée' });
+
+    if (check.rows[0].user_id !== req.user.id)
+      return res.status(403).json({ error: 'Interdit' });
+
     if (check.rows[0].image && check.rows[0].image !== 'default-annonce.jpg') {
       await supabase.storage.from('ANNONCES-IMAGES').remove([check.rows[0].image]);
     }
 
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
+
     res.json({ message: 'Supprimée avec succès' });
-  } catch (err) { res.status(500).json({ error: 'Erreur suppression' }); }
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur suppression' });
+  }
 });
 
 module.exports = router;
