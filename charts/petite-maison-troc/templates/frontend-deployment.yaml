@@ -1,14 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  # Nom du déploiement basé sur la release Helm
   name: {{ .Release.Name }}-frontend
   labels:
     app: frontend
+
 spec:
-  #replicas: 1 #{{ .Values.frontend.replicaCount | default 1 }}
-  
+  # replicas: 1  # Géré par OpenShift, pas nécessaire ici
+
   # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # RollingUpdate permet un déploiement sans coupure (zéro downtime)
+  # RollingUpdate = zéro downtime (OpenShift crée un pod avant d’en supprimer un)
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -23,10 +25,13 @@ spec:
     metadata:
       labels:
         app: frontend
+
     spec:
+      # Secret pour pull l’image depuis GHCR
       imagePullSecrets:
         - name: ghcr-secret
 
+      # Sécurité OpenShift : exécution non-root obligatoire
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -34,16 +39,18 @@ spec:
 
       containers:
         - name: web
+          # Image frontend (tag injecté par la CD)
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: {{ .Values.frontend.pullPolicy | default "Always" }}
 
+          # Sécurité du conteneur
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
-          # --- 🚀 CONFIGURATION RESSOURCES (Stabilité Frontend) ---
+          # --- 🚀 RESSOURCES (stabilité du frontend) ---
           resources:
             requests:
               cpu: {{ .Values.frontend.resources.requests.cpu | quote }}
@@ -52,15 +59,32 @@ spec:
               cpu: {{ .Values.frontend.resources.limits.cpu | quote }}
               memory: {{ .Values.frontend.resources.limits.memory | quote }}
 
-          # Port 8080 : Requis pour un user non-root sur OpenShift
+          # Port 8080 obligatoire pour un user non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
+          # --- 🌐 VARIABLES D’ENVIRONNEMENT FRONTEND ---
           env:
+            # URL de l’API backend (utilisée par React)
             - name: REACT_APP_API_URL
               value: {{ .Values.backend.url | quote }}
 
-          # 🛠️ Nginx doit écrire dans ces dossiers temporaires (obligatoire sur OpenShift).
+            # --- 🔥 VARIABLES SUPABASE POUR LE FRONTEND ---
+            # Injectées depuis le secret Kubernetes généré par Helm
+            - name: REACT_APP_SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: supabaseUrl
+
+            - name: REACT_APP_SUPABASE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: supabaseKey
+
+          # --- 📁 VOLUMES TEMPORAIRES POUR NGINX ---
+          # OpenShift interdit l’écriture dans le système de fichiers → on utilise emptyDir
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -69,7 +93,7 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Volumes emptyDir (Stockage en RAM).
+      # Définition des volumes emptyDir (RAM)
       volumes:
         - name: nginx-cache
           emptyDir: {}

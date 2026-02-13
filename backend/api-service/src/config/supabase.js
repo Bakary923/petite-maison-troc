@@ -1,15 +1,17 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// On récupère les clés
-// Pendant les tests, on met des valeurs par défaut pour éviter que Jest ne plante
-const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder-url.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'placeholder-key';
+// Récupération des variables d'environnement
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-// On affiche un warning si on est en production et que c'est vide
-if (!process.env.SUPABASE_URL && process.env.NODE_ENV === 'production') {
-  console.error("❌ ERREUR : SUPABASE_URL est manquante !");
+// Vérification minimale en production
+if (process.env.NODE_ENV === 'production') {
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("❌ ERREUR : Variables Supabase manquantes !");
+  }
 }
 
+// Création du client Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = supabase;

@@ -1,22 +1,44 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-// ✅ DÉCOUPLAGE : Utilisation de l'URL centralisée pour éviter les erreurs de ports Minikube
 import { API_BASE_URL } from '../config';
+
+// 👉 Import du client Supabase
+import { supabase } from "../supabaseClient";
 
 export default function CreateAnnonce({ onCreate, onCancel }) {
   const { authFetch } = useContext(AuthContext);
   const navigate = useNavigate();
+
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
   const [imageFile, setImageFile] = useState(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // 📌 Sélection du fichier image
   const handleFileChange = (e) => {
     setImageFile(e.target.files?.[0] || null);
   };
 
+  // 📌 Upload direct vers Supabase Storage
+  async function uploadImageToSupabase(file) {
+    const fileName = `${Date.now()}-${file.name}`;
+
+    const { data, error } = await supabase.storage
+      .from("ANNONCES-IMAGES")
+      .upload(fileName, file);
+
+    if (error) {
+      console.error("❌ Erreur Supabase :", error);
+      throw new Error("Échec de l'upload de l'image");
+    }
+
+    return data.path; // 👉 On renvoie juste le chemin
+  }
+
+  // 📌 Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -29,57 +51,42 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
     setLoading(true);
 
     try {
-      let res;
-      // ✅ SÉCURITÉ & FLEXIBILITÉ : Construction dynamique de l'URL de l'API
-      const targetUrl = `${API_BASE_URL}/annonces`;
+      let imagePath = null;
 
+      // 👉 Étape 1 : upload direct vers Supabase (si image)
       if (imageFile) {
-        // Envoi via FormData pour le support du téléchargement d'images
-        const fd = new FormData();
-        fd.append('titre', titre.trim());
-        fd.append('description', description.trim());
-        fd.append('image', imageFile);
-        
-        res = await authFetch(targetUrl, {
-          method: 'POST',
-          body: fd,
-        });
-      } else {
-        // Envoi JSON standard si aucune image n'est jointe
-        res = await authFetch(targetUrl, {
-          method: 'POST',
-          body: JSON.stringify({
-            titre: titre.trim(),
-            description: description.trim(),
-          }),
-        });
+        imagePath = await uploadImageToSupabase(imageFile);
       }
+
+      // 👉 Étape 2 : envoi des données au backend (JSON simple)
+      const res = await authFetch(`${API_BASE_URL}/annonces`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titre: titre.trim(),
+          description: description.trim(),
+          imagePath, // 👉 On envoie juste le chemin
+        }),
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        const msg =
-          body.error ||
-          body.message ||
-          (body.errors && body.errors[0]?.msg) ||
-          `HTTP ${res.status}`;
-        throw new Error(msg);
+        throw new Error(body.error || body.message || `HTTP ${res.status}`);
       }
 
       const data = await res.json().catch(() => null);
       const created = data?.annonce || data || null;
 
-      // Notification au composant parent de la réussite de la création
       if (typeof onCreate === 'function') onCreate(created);
 
-      // Réinitialisation du formulaire (Clean State)
+      // Reset du formulaire
       setTitre('');
       setDescription('');
       setImageFile(null);
 
-      // Redirection fluide après publication
-      setTimeout(() => {
-        navigate('/annonces');
-      }, 500);
+      // Redirection
+      setTimeout(() => navigate('/annonces'), 500);
+
     } catch (err) {
       setError(err.message || 'Erreur lors de la création');
     } finally {
@@ -97,7 +104,7 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
           </div>
 
           <form onSubmit={handleSubmit} style={styles.form}>
-            {/* ✅ OBSERVABILITÉ : Affichage dynamique des erreurs API */}
+            
             {error && (
               <div style={styles.errorBox}>
                 <span style={styles.errorIcon}>⚠️</span>
@@ -161,6 +168,7 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
               >
                 {loading ? 'Publication en cours...' : 'Publier l\'annonce'}
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -179,7 +187,8 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
   );
 }
 
-// Les styles restent identiques à ta version précédente
+
+// 🎨 Styles (inchangés)
 const styles = {
   page: {
     minHeight: '100vh',

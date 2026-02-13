@@ -1,20 +1,17 @@
 /**
- * ROUTES ANNONCES — VERSION FINALE
- * Compatible Jest / Supabase / Architecture Stateless
+ * ROUTES ANNONCES — VERSION FINALE (UPLOAD VIA FRONTEND)
+ * Le backend ne reçoit plus de fichier → seulement imagePath
  */
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 
-// Import du client Supabase et du middleware d'authentification
 const supabase = require('../config/supabase');
 const authMiddleware = require('../middlewares/auth');
 const { body, validationResult } = require('express-validator');
 
 /* ============================================================================
-   VALIDATION DES DONNÉES (ISO 25010)
-   Les tests Jest attendent des messages précis → .withMessage() obligatoire
+   VALIDATION DES DONNÉES
 ============================================================================ */
 const validateAnnonce = [
   body('titre')
@@ -35,15 +32,6 @@ const validateAnnonce = [
 ];
 
 /* ============================================================================
-   CONFIGURATION MULTER (STATLESS / HPA)
-============================================================================ */
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5 Mo max
-});
-
-/* ============================================================================
    HELPER : Génère l’URL publique Supabase
 ============================================================================ */
 const toImageUrl = (path) => {
@@ -53,17 +41,17 @@ const toImageUrl = (path) => {
 };
 
 /* ============================================================================
-   ROUTES (ORDRE CRITIQUE)
+   ROUTES
 ============================================================================ */
 
 /**
  * GET /api/annonces
  * PUBLIC — Retourne toutes les annonces validées
- * ✔ Renvoie { annonces: [...] } (attendu par Jest)
  */
 router.get('/', async (req, res) => {
   try {
     const pool = req.app.locals.pool;
+
     const result = await pool.query(
       "SELECT * FROM annonces WHERE status = 'validated' ORDER BY created_at DESC"
     );
@@ -75,6 +63,7 @@ router.get('/', async (req, res) => {
 
     res.json({ annonces });
   } catch (err) {
+    console.error("GET /annonces ERROR:", err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -82,8 +71,6 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/annonces/me
  * PRIVÉ — Retourne les annonces de l’utilisateur connecté
- * ✔ Doit être AVANT /:id
- * ✔ Renvoie { annonces: [...] }
  */
 router.get('/me', authMiddleware, async (req, res) => {
   try {
@@ -102,6 +89,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 
     res.json({ annonces });
   } catch (err) {
+    console.error("GET /annonces/me ERROR:", err);
     res.status(500).json({ error: 'Erreur lors de la récupération de vos annonces' });
   }
 });
@@ -109,36 +97,15 @@ router.get('/me', authMiddleware, async (req, res) => {
 /**
  * POST /api/annonces
  * PRIVÉ — Création d’une annonce
- * ✔ Compatible Supabase
- * ✔ Compatible Jest
+ * ⚠️ IMPORTANT : l’image est déjà uploadée par le frontend → on reçoit imagePath
  */
-router.post('/', authMiddleware, upload.single('image'), validateAnnonce, async (req, res) => {
+router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
-    const { titre, description } = req.body;
+    const { titre, description, imagePath } = req.body;
     const userId = req.user.id;
 
-    let imagePath = 'default-annonce.jpg';
-
-    // Upload Supabase si image fournie
-    if (req.file) {
-      const fileName = `${Date.now()}-${req.file.originalname}`;
-
-      const { data, error } = await supabase.storage
-        .from('ANNONCES-IMAGES')
-        .upload(fileName, req.file.buffer, {
-          contentType: req.file.mimetype,
-          upsert: false
-        });
-
-      // 🔥 LOG D'ERREUR SUPABASE (DEBUG)
-      if (error) {
-        console.error("SUPABASE UPLOAD ERROR:", error);
-        throw error;
-      }
-
-      imagePath = data.path;
-    }
+    const finalImage = imagePath || 'default-annonce.jpg';
 
     const query = `
       INSERT INTO annonces (titre, description, image, user_id)
@@ -146,14 +113,23 @@ router.post('/', authMiddleware, upload.single('image'), validateAnnonce, async 
       RETURNING *
     `;
 
-    const result = await pool.query(query, [titre, description, imagePath, userId]);
+    const result = await pool.query(query, [
+      titre,
+      description,
+      finalImage,
+      userId
+    ]);
 
     res.status(201).json({
       message: 'Annonce créée',
-      annonce: { ...result.rows[0], image: toImageUrl(result.rows[0].image) }
+      annonce: {
+        ...result.rows[0],
+        image: toImageUrl(result.rows[0].image)
+      }
     });
+
   } catch (err) {
-    console.error("ERREUR BACKEND /api/annonces :", err);
+    console.error("POST /annonces ERROR:", err);
     res.status(500).json({ error: 'Erreur lors de la création' });
   }
 });
@@ -165,16 +141,25 @@ router.post('/', authMiddleware, upload.single('image'), validateAnnonce, async 
 router.get('/:id', async (req, res) => {
   try {
     const pool = req.app.locals.pool;
-    const result = await pool.query('SELECT * FROM annonces WHERE id = $1', [req.params.id]);
+
+    const result = await pool.query(
+      'SELECT * FROM annonces WHERE id = $1',
+      [req.params.id]
+    );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Annonce non trouvée' });
     }
 
     res.json({
-      annonce: { ...result.rows[0], image: toImageUrl(result.rows[0].image) }
+      annonce: {
+        ...result.rows[0],
+        image: toImageUrl(result.rows[0].image)
+      }
     });
+
   } catch (err) {
+    console.error("GET /annonces/:id ERROR:", err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -182,7 +167,6 @@ router.get('/:id', async (req, res) => {
 /**
  * PUT /api/annonces/:id
  * PRIVÉ — Mise à jour d’une annonce
- * ✔ Compatible Jest
  */
 router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
   try {
@@ -191,7 +175,10 @@ router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
     const { titre, description } = req.body;
     const userId = req.user.id;
 
-    const check = await pool.query('SELECT user_id FROM annonces WHERE id = $1', [id]);
+    const check = await pool.query(
+      'SELECT user_id FROM annonces WHERE id = $1',
+      [id]
+    );
 
     if (check.rows.length === 0) {
       return res.status(404).json({ error: 'Annonce non trouvée' });
@@ -208,13 +195,22 @@ router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
       RETURNING *
     `;
 
-    const result = await pool.query(updateQ, [titre, description, id]);
+    const result = await pool.query(updateQ, [
+      titre,
+      description,
+      id
+    ]);
 
     res.json({
       message: 'Annonce mise à jour avec succès',
-      annonce: { ...result.rows[0], image: toImageUrl(result.rows[0].image) }
+      annonce: {
+        ...result.rows[0],
+        image: toImageUrl(result.rows[0].image)
+      }
     });
+
   } catch (err) {
+    console.error("PUT /annonces/:id ERROR:", err);
     res.status(500).json({ error: 'Erreur lors de la mise à jour' });
   }
 });
@@ -222,7 +218,6 @@ router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
 /**
  * DELETE /api/annonces/:id
  * PRIVÉ — Suppression d’une annonce
- * ✔ Compatible Jest
  */
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
@@ -244,6 +239,8 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 
     const oldImagePath = check.rows[0].image;
+
+    // 👉 Supprimer l’image Supabase si elle existe
     if (oldImagePath && oldImagePath !== 'default-annonce.jpg') {
       await supabase.storage.from('ANNONCES-IMAGES').remove([oldImagePath]);
     }
@@ -251,7 +248,9 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
 
     res.json({ message: 'Annonce supprimée avec succès' });
+
   } catch (err) {
+    console.error("DELETE /annonces/:id ERROR:", err);
     res.status(500).json({ error: 'Erreur lors de la suppression' });
   }
 });

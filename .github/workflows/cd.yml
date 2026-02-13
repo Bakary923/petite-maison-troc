@@ -6,7 +6,7 @@ on:
   workflow_run:
     workflows: ["CI Petite Maison DevSecOps"]
     types: [completed]
-    branches: [main]
+    branches: [dev]
 
 jobs:
   deploy:
