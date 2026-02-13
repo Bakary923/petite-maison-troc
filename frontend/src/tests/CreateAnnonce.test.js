@@ -1,3 +1,17 @@
+// --- 🔧 MOCK FORM DATA POUR JEST (JSDOM NE GÈRE PAS instanceof FormData) ---
+global.FormData = class FormDataMock {
+  constructor() {
+    this.fields = {};
+  }
+  append(key, value) {
+    this.fields[key] = value;
+  }
+  get(key) {
+    return this.fields[key];
+  }
+};
+
+// --- 📦 IMPORTS ---
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
@@ -27,7 +41,7 @@ describe('📦 Page CreateAnnonce', () => {
       target: { value: 'Vélo de course' }
     });
 
-    // Remplir la description (OBLIGATOIRE)
+    // Remplir la description
     fireEvent.change(screen.getByPlaceholderText(/Décrivez l'article/i), {
       target: { value: 'Très bon état, peu servi.' }
     });
@@ -45,6 +59,7 @@ describe('📦 Page CreateAnnonce', () => {
 
     const [, options] = mockAuthFetch.mock.calls[0];
 
+    // --- ✔️ TESTS MIS À JOUR ---
     expect(options.body instanceof FormData).toBe(true);
     expect(options.body.get('titre')).toBe('Vélo de course');
     expect(options.body.get('description')).toBe('Très bon état, peu servi.');
