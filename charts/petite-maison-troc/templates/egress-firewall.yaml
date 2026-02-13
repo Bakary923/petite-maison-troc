@@ -1,0 +1,13 @@
+{{- if .Values.egressFirewall.enabled }}
+apiVersion: network.openshift.io/v1
+kind: EgressFirewall
+metadata:
+  name: allow-supabase
+  namespace: {{ .Release.Namespace }}
+spec:
+  egress:
+    - type: Allow
+      to:
+        dnsName: "*.supabase.co"
+  podSelector: {}
+{{- end }}
