@@ -40,7 +40,8 @@ describe("CreateAnnonce", () => {
 
     fireEvent.click(screen.getByText(/publier/i));
 
-    expect(await screen.findByText(/titre et description requis/i)).toBeInTheDocument();
+    const errorMsg = await screen.findByText(/titre et description requis/i);
+    expect(errorMsg).toBeInTheDocument();
   });
 
   test("envoie une annonce valide sans image", async () => {
@@ -56,10 +57,8 @@ describe("CreateAnnonce", () => {
 
     fireEvent.click(screen.getByText(/publier/i));
 
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalled();
-      expect(mockNavigate).toHaveBeenCalledWith("/annonces");
-    });
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalled());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/annonces"));
   });
 
   test("upload une image et crée l'annonce", async () => {
@@ -81,9 +80,7 @@ describe("CreateAnnonce", () => {
 
     fireEvent.click(screen.getByText(/publier/i));
 
-    await waitFor(() => {
-      expect(mockAuthFetch).toHaveBeenCalled();
-      expect(mockNavigate).toHaveBeenCalledWith("/annonces");
-    });
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalled());
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/annonces"));
   });
 });
