@@ -78,6 +78,3 @@ database:
 # --- 7. INGRESS ---
 ingress:
   enabled: false # Utilisation des Routes natives OpenShift
-
-egressFirewall:
-  enabled: true
