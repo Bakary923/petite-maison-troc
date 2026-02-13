@@ -43,7 +43,7 @@ export default function CreateAnnonce() {
 
         // ⚠️ Utilisation du nom en MAJUSCULES comme sur ton dashboard
         const { data, error: uploadError } = await supabase.storage
-          .from('ANNONCES-IMAGES')
+          .from('annonces-images')
           .upload(fileName, imageFile);
 
         if (uploadError) throw new Error(`Erreur Supabase: ${uploadError.message}`);

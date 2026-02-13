@@ -9,7 +9,7 @@ const { body, validationResult } = require('express-validator');
 ----------------------------------------------------------- */
 const toImageUrl = (path) => {
   if (!path || path === 'default-annonce.jpg') return '/default-annonce.jpg';
-  const { data } = supabase.storage.from('ANNONCES-IMAGES').getPublicUrl(path);
+  const { data } = supabase.storage.from('annonces-images').getPublicUrl(path);
   return data.publicUrl;
 };
 
@@ -151,7 +151,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Interdit' });
 
     if (check.rows[0].image && check.rows[0].image !== 'default-annonce.jpg') {
-      await supabase.storage.from('ANNONCES-IMAGES').remove([check.rows[0].image]);
+      await supabase.storage.from('annonces-images').remove([check.rows[0].image]);
     }
 
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
