@@ -48,7 +48,7 @@ const upload = multer({
 ============================================================================ */
 const toImageUrl = (path) => {
   if (!path || path === 'default-annonce.jpg') return 'default-annonce.jpg';
-  const { data } = supabase.storage.from('annonces-images').getPublicUrl(path);
+  const { data } = supabase.storage.from('ANNONCES-IMAGES').getPublicUrl(path);
   return data.publicUrl;
 };
 
@@ -125,13 +125,18 @@ router.post('/', authMiddleware, upload.single('image'), validateAnnonce, async 
       const fileName = `${Date.now()}-${req.file.originalname}`;
 
       const { data, error } = await supabase.storage
-        .from('annonces-images')
+        .from('ANNONCES-IMAGES')
         .upload(fileName, req.file.buffer, {
           contentType: req.file.mimetype,
           upsert: false
         });
 
-      if (error) throw error;
+      // 🔥 LOG D'ERREUR SUPABASE (DEBUG)
+      if (error) {
+        console.error("SUPABASE UPLOAD ERROR:", error);
+        throw error;
+      }
+
       imagePath = data.path;
     }
 
@@ -148,6 +153,7 @@ router.post('/', authMiddleware, upload.single('image'), validateAnnonce, async 
       annonce: { ...result.rows[0], image: toImageUrl(result.rows[0].image) }
     });
   } catch (err) {
+    console.error("ERREUR BACKEND /api/annonces :", err);
     res.status(500).json({ error: 'Erreur lors de la création' });
   }
 });
@@ -239,7 +245,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     const oldImagePath = check.rows[0].image;
     if (oldImagePath && oldImagePath !== 'default-annonce.jpg') {
-      await supabase.storage.from('annonces-images').remove([oldImagePath]);
+      await supabase.storage.from('ANNONCES-IMAGES').remove([oldImagePath]);
     }
 
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
