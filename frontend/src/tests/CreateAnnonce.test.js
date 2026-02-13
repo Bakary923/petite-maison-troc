@@ -1,17 +1,3 @@
-// --- 🔧 MOCK FORM DATA POUR JEST (JSDOM NE GÈRE PAS instanceof FormData) ---
-global.FormData = class FormDataMock {
-  constructor() {
-    this.fields = {};
-  }
-  append(key, value) {
-    this.fields[key] = value;
-  }
-  get(key) {
-    return this.fields[key];
-  }
-};
-
-// --- 📦 IMPORTS ---
 import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
