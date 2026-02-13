@@ -1,10 +1,11 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-// ✅ DÉCOUPLAGE : Utilisation de l'URL centralisée pour éviter les erreurs de ports Minikube
 import { API_BASE_URL } from '../config';
+// ✅ IMPORT DU CLIENT SUPABASE
+import { supabase } from '../config/supabaseClient';
 
-export default function CreateAnnonce({ onCreate, onCancel }) {
+export default function CreateAnnonce() {
   const { authFetch } = useContext(AuthContext);
   const navigate = useNavigate();
   const [titre, setTitre] = useState('');
@@ -29,59 +30,42 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
     setLoading(true);
 
     try {
-      let res;
-      // ✅ SÉCURITÉ & FLEXIBILITÉ : Construction dynamique de l'URL de l'API
-      const targetUrl = `${API_BASE_URL}/annonces`;
+      let imagePath = 'default-annonce.jpg';
 
+      // ✅ ÉTAPE 1 : UPLOAD DIRECT VERS SUPABASE (Architecture Stateless)
       if (imageFile) {
-        // Envoi via FormData pour le support du téléchargement d'images
-        const fd = new FormData();
-        fd.append('titre', titre.trim());
-        fd.append('description', description.trim());
-        fd.append('image', imageFile);
-        
-        res = await authFetch(targetUrl, {
-          method: 'POST',
-          body: fd,
-        });
-      } else {
-        // Envoi JSON standard si aucune image n'est jointe
-        res = await authFetch(targetUrl, {
-          method: 'POST',
-          body: JSON.stringify({
-            titre: titre.trim(),
-            description: description.trim(),
-          }),
-        });
+        // Sécurité : Limite 5Mo
+        if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
+
+        // Renommage propre
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        // ⚠️ Utilisation du nom en MAJUSCULES comme sur ton dashboard
+        const { data, error: uploadError } = await supabase.storage
+          .from('ANNONCES-IMAGES')
+          .upload(fileName, imageFile);
+
+        if (uploadError) throw new Error(`Erreur Supabase: ${uploadError.message}`);
+        imagePath = data.path; 
       }
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg =
-          body.error ||
-          body.message ||
-          (body.errors && body.errors[0]?.msg) ||
-          `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
+      // ✅ ÉTAPE 2 : ENVOI JSON AU BACKEND (Compatible HPA)
+      const res = await authFetch(`${API_BASE_URL}/annonces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titre: titre.trim(),
+          description: description.trim(),
+          image: imagePath, 
+        }),
+      });
 
-      const data = await res.json().catch(() => null);
-      const created = data?.annonce || data || null;
+      if (!res.ok) throw new Error('Erreur lors de la création de l\'annonce');
 
-      // Notification au composant parent de la réussite de la création
-      if (typeof onCreate === 'function') onCreate(created);
-
-      // Réinitialisation du formulaire (Clean State)
-      setTitre('');
-      setDescription('');
-      setImageFile(null);
-
-      // Redirection fluide après publication
-      setTimeout(() => {
-        navigate('/annonces');
-      }, 500);
+      navigate('/annonces');
     } catch (err) {
-      setError(err.message || 'Erreur lors de la création');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -90,124 +74,44 @@ export default function CreateAnnonce({ onCreate, onCancel }) {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <div style={styles.formWrapper}>
-          <div style={styles.formHeader}>
-            <h1 style={styles.title}>Proposer un article</h1>
-            <p style={styles.subtitle}>Partagez un objet à échanger ou donner</p>
+        <h2 style={styles.title}>👻 Nouvelle Annonce (Cloud-Native)</h2>
+        {error && <div style={styles.error}>{error}</div>}
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <input
+            style={styles.input}
+            placeholder="Titre (min 3 car.)"
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+          />
+          <textarea
+            style={styles.textarea}
+            placeholder="Description (min 10 car.)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div style={styles.fileGroup}>
+            <label style={styles.fileLabel}>
+              {imageFile ? `📸 ${imageFile.name}` : "📎 Joindre une photo"}
+              <input type="file" style={{ display: 'none' }} onChange={handleFileChange} accept="image/*" />
+            </label>
           </div>
-
-          <form onSubmit={handleSubmit} style={styles.form}>
-            {/* ✅ OBSERVABILITÉ : Affichage dynamique des erreurs API */}
-            {error && (
-              <div style={styles.errorBox}>
-                <span style={styles.errorIcon}>⚠️</span>
-                {error}
-              </div>
-            )}
-
-            {/* TITRE */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Titre de l'article *</label>
-              <input
-                type="text"
-                placeholder="Ex: Vélo bleu en bon état"
-                value={titre}
-                onChange={(e) => setTitre(e.target.value)}
-                required
-                style={styles.input}
-              />
-            </div>
-
-            {/* DESCRIPTION */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Description *</label>
-              <textarea
-                placeholder="Décrivez l'article : état, caractéristiques..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
-                rows={6}
-                style={styles.textarea}
-              />
-            </div>
-
-            {/* IMAGE */}
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Image (optionnel)</label>
-              <div style={styles.fileInputWrapper}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  style={styles.fileInput}
-                  id="image-input"
-                />
-                <label htmlFor="image-input" style={styles.fileLabel}>
-                  {imageFile ? `✓ ${imageFile.name}` : "📎 Cliquez pour sélectionner une image"}
-                </label>
-              </div>
-            </div>
-
-            {/* ACTIONS */}
-            <div style={styles.actions}>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  ...styles.submitButton,
-                  opacity: loading ? 0.6 : 1,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {loading ? 'Publication en cours...' : 'Publier l\'annonce'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (typeof onCancel === 'function') onCancel();
-                  navigate('/annonces');
-                }}
-                style={styles.cancelButton}
-              >
-                Annuler
-              </button>
-            </div>
-          </form>
-        </div>
+          <button type="submit" disabled={loading} style={styles.submitButton}>
+            {loading ? 'Téléchargement Cloud...' : 'Publier l\'annonce'}
+          </button>
+        </form>
       </div>
     </div>
   );
 }
 
-// Les styles restent identiques à ta version précédente
 const styles = {
-  page: {
-    minHeight: '100vh',
-    background: 'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)',
-    color: '#F9FAFB',
-    padding: '60px 20px',
-  },
-  container: { maxWidth: '600px', margin: '0 auto' },
-  formWrapper: {
-    borderRadius: 28,
-    border: '1px solid rgba(148, 163, 184, 0.4)',
-    background: 'rgba(15, 23, 42, 0.92)',
-    boxShadow: '0 32px 100px rgba(0, 0, 0, 0.85)',
-    padding: 40,
-    backdropFilter: 'blur(20px)',
-  },
-  formHeader: { marginBottom: 32 },
-  title: { fontSize: 32, fontWeight: 700, margin: '0 0 12px 0' },
-  subtitle: { fontSize: 16, color: '#9CA3AF', margin: 0 },
-  form: { display: 'flex', flexDirection: 'column', gap: 24 },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: 8 },
-  label: { fontSize: 14, fontWeight: 600, color: '#E5E7EB', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  input: { padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(31, 41, 55, 0.9)', background: 'rgba(15, 23, 42, 0.8)', color: '#F9FAFB', fontSize: 14 },
-  textarea: { padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(31, 41, 55, 0.9)', background: 'rgba(15, 23, 42, 0.8)', color: '#F9FAFB', fontSize: 14, resize: 'vertical' },
-  fileInput: { display: 'none' },
-  fileLabel: { display: 'block', padding: '12px 16px', borderRadius: 12, border: '1px dashed rgba(249, 115, 22, 0.5)', background: 'rgba(249, 115, 22, 0.08)', color: '#E5E7EB', textAlign: 'center', cursor: 'pointer' },
-  actions: { display: 'flex', gap: 12, flexDirection: 'column', marginTop: 12 },
-  submitButton: { padding: '14px 32px', borderRadius: 999, border: 'none', background: 'radial-gradient(circle at 0 0, rgba(249,115,22,0.4), rgba(249,115,22,0.95))', color: '#020617', fontWeight: 700, textTransform: 'uppercase', boxShadow: '0 0 28px rgba(249,115,22,0.6)' },
-  cancelButton: { padding: '14px 32px', borderRadius: 999, border: '1px solid rgba(148, 163, 184, 0.6)', background: 'transparent', color: '#E5E7EB', fontWeight: 600, textTransform: 'uppercase' },
-  errorBox: { padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(239, 68, 68, 0.5)', background: 'rgba(239, 68, 68, 0.15)', color: '#fecaca', display: 'flex', gap: 8, alignItems: 'center' },
+  page: { padding: '60px 20px', minHeight: '100vh', background: '#020617' },
+  container: { maxWidth: 550, margin: '0 auto', background: 'rgba(15, 23, 42, 0.95)', padding: 40, borderRadius: 20, border: '1px solid #1e293b' },
+  title: { color: '#f97316', textAlign: 'center', marginBottom: 30 },
+  error: { color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: 12, borderRadius: 8, marginBottom: 20 },
+  form: { display: 'flex', flexDirection: 'column', gap: 20 },
+  input: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white' },
+  textarea: { padding: 14, borderRadius: 12, border: '1px solid #334155', background: '#0f172a', color: 'white', minHeight: 120 },
+  fileLabel: { padding: 15, border: '2px dashed #f97316', borderRadius: 12, color: '#f97316', textAlign: 'center', cursor: 'pointer', display: 'block' },
+  submitButton: { padding: 16, background: '#f97316', color: 'white', border: 'none', borderRadius: 12, fontWeight: 'bold', cursor: 'pointer', fontSize: 16 }
 };
