@@ -6,7 +6,8 @@ import { API_BASE_URL } from '../config';
 import { supabase } from '../config/supabaseClient';
 
 export default function CreateAnnonce() {
-  const { authFetch } = useContext(AuthContext);
+  // 1️⃣ On récupère accessToken depuis le contexte
+  const { authFetch, accessToken } = useContext(AuthContext);
   const navigate = useNavigate();
   const [titre, setTitre] = useState('');
   const [description, setDescription] = useState('');
@@ -37,11 +38,19 @@ export default function CreateAnnonce() {
         // Sécurité : Limite 5Mo
         if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
 
+        // 🛠️ SYNCHRONISATION AUTH : On dit à Supabase qui on est
+        if (accessToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: 'not-needed-here' // Le refresh est géré par ton AuthContext
+          });
+        }
+
         // Renommage propre
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        // ⚠️ Utilisation du nom en MAJUSCULES comme sur ton dashboard
+        // Upload avec le client authentifié
         const { data, error: uploadError } = await supabase.storage
           .from('annonces-images')
           .upload(fileName, imageFile);
