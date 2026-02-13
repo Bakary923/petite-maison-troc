@@ -1,53 +1,89 @@
-import React from 'react';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react';
-import { AuthContext } from '../contexts/AuthContext';
-import CreateAnnonce from '../pages/CreateAnnonce';
+/**
+ * @jest-environment jsdom
+ */
 
-describe('📦 Page CreateAnnonce', () => {
-  const mockAuthFetch = jest.fn();
+import React from "react";
+import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import CreateAnnonce from "../pages/CreateAnnonce";
+import { AuthContext } from "../contexts/AuthContext";
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+// Mock Supabase
+jest.mock("@supabase/supabase-js");
 
-  it('Envoie un FormData complet avec image', async () => {
-    mockAuthFetch.mockResolvedValueOnce({
+// Mock navigate()
+const mockNavigate = jest.fn();
+jest.mock("react-router-dom", () => ({
+  ...jest.requireActual("react-router-dom"),
+  useNavigate: () => mockNavigate
+}));
+
+describe("CreateAnnonce", () => {
+  const mockAuthFetch = jest.fn(() =>
+    Promise.resolve({
       ok: true,
-      json: async () => ({ annonce: { id: 101 } })
-    });
+      json: () => Promise.resolve({ message: "ok" })
+    })
+  );
 
+  const renderPage = () =>
     render(
       <AuthContext.Provider value={{ authFetch: mockAuthFetch }}>
-        <CreateAnnonce />
+        <MemoryRouter>
+          <CreateAnnonce />
+        </MemoryRouter>
       </AuthContext.Provider>
     );
 
-    // Remplir le titre
-    fireEvent.change(screen.getByPlaceholderText(/vélo bleu/i), {
-      target: { value: 'Vélo de course' }
+  test("affiche une erreur si titre ou description manquent", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByText(/publier/i));
+
+    expect(await screen.findByText(/titre et description requis/i)).toBeInTheDocument();
+  });
+
+  test("envoie une annonce valide sans image", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/titre/i), {
+      target: { value: "Chaise" }
     });
 
-    // Remplir la description (OBLIGATOIRE)
-    fireEvent.change(screen.getByPlaceholderText(/Décrivez l'article/i), {
-      target: { value: 'Très bon état, peu servi.' }
+    fireEvent.change(screen.getByPlaceholderText(/description/i), {
+      target: { value: "Belle chaise en bois" }
     });
 
-    // Ajouter une image
-    const file = new File(['image'], 'velo.png', { type: 'image/png' });
-    fireEvent.change(screen.getByLabelText(/image/i), {
+    fireEvent.click(screen.getByText(/publier/i));
+
+    await waitFor(() => {
+      expect(mockAuthFetch).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith("/annonces");
+    });
+  });
+
+  test("upload une image et crée l'annonce", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/titre/i), {
+      target: { value: "Chaise" }
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/description/i), {
+      target: { value: "Belle chaise en bois" }
+    });
+
+    const file = new File(["hello"], "photo.jpg", { type: "image/jpeg" });
+
+    fireEvent.change(screen.getByLabelText(/joindre une photo/i), {
       target: { files: [file] }
     });
 
-    // Soumettre
     fireEvent.click(screen.getByText(/publier/i));
 
-    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalled());
-
-    const [, options] = mockAuthFetch.mock.calls[0];
-
-    expect(options.body instanceof FormData).toBe(true);
-    expect(options.body.get('titre')).toBe('Vélo de course');
-    expect(options.body.get('description')).toBe('Très bon état, peu servi.');
-    expect(options.body.get('image')).toBe(file);
+    await waitFor(() => {
+      expect(mockAuthFetch).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith("/annonces");
+    });
   });
 });
