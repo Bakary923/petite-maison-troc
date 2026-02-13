@@ -10,7 +10,7 @@ describe('📦 Page CreateAnnonce', () => {
     jest.clearAllMocks();
   });
 
-  it('Envoie un FormData complet avec image', async () => {
+  it('Envoie un JSON complet avec imagePath', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ annonce: { id: 101 } })
@@ -45,10 +45,13 @@ describe('📦 Page CreateAnnonce', () => {
 
     const [, options] = mockAuthFetch.mock.calls[0];
 
-    // --- ✔️ TESTS MIS À JOUR ---
-    expect(options.body instanceof FormData).toBe(true);
-    expect(options.body.get('titre')).toBe('Vélo de course');
-    expect(options.body.get('description')).toBe('Très bon état, peu servi.');
-    expect(options.body.get('image')).toBe(file);
+    // --- ✔️ NOUVEAU TEST : JSON, PAS FORM DATA ---
+    expect(typeof options.body).toBe("string");
+
+    const parsed = JSON.parse(options.body);
+
+    expect(parsed.titre).toBe("Vélo de course");
+    expect(parsed.description).toBe("Très bon état, peu servi.");
+    expect(parsed.imagePath).toBe("fake/path.png"); // mock Supabase
   });
 });
