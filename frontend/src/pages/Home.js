@@ -140,7 +140,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* 🔥 Si connecté → CTA devient "Voir mes annonces" */}
+          {/* 🔥 Si connecté → cacher "Rejoindre maintenant" */}
           {user ? (
             <button onClick={() => navigate('/annonces/me')} style={styles.ctaButton}>
               Voir mes annonces
