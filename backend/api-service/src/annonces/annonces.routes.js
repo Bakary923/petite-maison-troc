@@ -25,6 +25,7 @@ const validateAnnonce = [
 
 /* -----------------------------------------------------------
    GET /api/annonces  (public)
+   → Affiche uniquement les annonces validées
 ----------------------------------------------------------- */
 router.get('/', async (req, res) => {
   try {
@@ -33,7 +34,6 @@ router.get('/', async (req, res) => {
       "SELECT * FROM annonces WHERE status = 'validated' ORDER BY created_at DESC"
     );
 
-    // 🔥 Cloudinary : l’URL est déjà complète
     res.json({ annonces: result.rows });
 
   } catch (err) {
@@ -43,6 +43,7 @@ router.get('/', async (req, res) => {
 
 /* -----------------------------------------------------------
    GET /api/annonces/me  (privé)
+   → Affiche toutes les annonces de l’utilisateur
 ----------------------------------------------------------- */
 router.get('/me', authMiddleware, async (req, res) => {
   try {
@@ -61,18 +62,19 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 /* -----------------------------------------------------------
    POST /api/annonces  (privé)
+   → Création d’annonce → statut = pending (modération)
 ----------------------------------------------------------- */
 router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
   try {
     const pool = req.app.locals.pool;
     const { titre, description, image } = req.body;
 
-    // 🔥 Cloudinary : l’image est déjà une URL complète
+    // Cloudinary : l’image est déjà une URL complète
     const imageUrl = image || 'default-annonce.jpg';
 
     const query = `
       INSERT INTO annonces (titre, description, image, user_id, status)
-      VALUES ($1, $2, $3, $4, 'validated')
+      VALUES ($1, $2, $3, $4, 'pending')
       RETURNING *
     `;
 
@@ -84,7 +86,7 @@ router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
     ]);
 
     res.status(201).json({
-      message: 'Annonce créée',
+      message: 'Annonce créée (en attente de validation)',
       annonce: result.rows[0]
     });
 
@@ -137,9 +139,6 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     if (check.rows[0].user_id !== req.user.id)
       return res.status(403).json({ error: 'Interdit' });
-
-    // 🔥 Cloudinary : on ne supprime rien côté backend
-    // (tu peux ajouter une API Cloudinary plus tard si tu veux)
 
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
 
