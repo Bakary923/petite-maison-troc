@@ -6,7 +6,7 @@ openshift:
   enabled: true 
 
 secrets:
-  # Valeurs par défaut (écrasées par values-secrets.yaml en local ou GitHub Secrets en CD)
+  # Ces valeurs sont écrasées par values-secrets.yaml
   dbHost: "REDACTED"
   dbPort: "5432"
   dbUrl: "REDACTED"
@@ -15,9 +15,11 @@ secrets:
   dbPassword: "REDACTED"
   jwtSecret: "REDACTED"
   jwtRefreshSecret: "REDACTED"
-  # ✅ AJOUT POUR LE STOCKAGE CLOUD (STATELESS)
-  supabaseUrl: "REDACTED"
-  supabaseKey: "REDACTED"
+
+  # --- ☁️ CLOUDINARY (Nouveau stockage images) ---
+  cloudinary:
+    cloudName: "REDACTED"
+    uploadPreset: "REDACTED"
 
 # --- 3. BACKEND (API) ---
 backend:
@@ -29,8 +31,7 @@ backend:
   servicePort: 3000
   serviceType: ClusterIP
   url: "/api"
-  
-  # --- CONFIGURATION RESSOURCES (Indispensable pour le HPA) ---
+
   resources:
     requests:
       cpu: "100m"
@@ -38,8 +39,7 @@ backend:
     limits:
       cpu: "500m"
       memory: "256Mi"
-  
-  # --- MONTÉE EN CHARGE (Validé sans PVC) ---
+
   hpa:
     enabled: true
     minReplicas: 1
@@ -56,7 +56,7 @@ frontend:
   servicePort: 8080
   serviceType: ClusterIP
   url: "https://petite-maison-frontend-bakary-badiaga-dev.apps.rm3.7wse.p1.openshiftapps.com"
-  
+
   resources:
     requests:
       cpu: "50m"
@@ -65,16 +65,12 @@ frontend:
       cpu: "100m"
       memory: "128Mi"
 
-# --- 5. BASE DE DONNÉES SUPABASE ---
+# --- 5. BASE DE DONNÉES SUPABASE (PostgreSQL) ---
 database:
-  host: "aws-1-eu-west-1.pooler.supabase.com" 
-  port: 5432 
+  host: "aws-1-eu-west-1.pooler.supabase.com"
+  port: 5432
   name: "postgres"
-
-# --- 6. STOCKAGE ---
-# ❌ SECTION SUPPRIMÉE : L'application est désormais Stateless (Supabase Storage).
-# Le PVC 'uploads-pvc' n'est plus requis pour le Backend.
 
 # --- 7. INGRESS ---
 ingress:
-  enabled: false # Utilisation des Routes natives OpenShift
+  enabled: false

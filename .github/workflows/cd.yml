@@ -75,8 +75,8 @@ jobs:
             --set secrets.dbUrl="${{ secrets.DB_URL }}" \
             --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
             --set secrets.jwtRefreshSecret=${{ secrets.JWT_REFRESH_SECRET }} \
-            --set secrets.supabaseUrl=${{ secrets.SUPABASE_URL }} \
-            --set secrets.supabaseKey=${{ secrets.SUPABASE_KEY }}
+            --set secrets.cloudinary.cloudName=${{ secrets.CLOUDINARY_CLOUD_NAME }} \
+            --set secrets.cloudinary.uploadPreset=${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
 
       # --- ÉTAPE 6 : SUPERVISION POST-DÉPLOIEMENT ---
       - name: 🩺 Check Pods Status
@@ -99,8 +99,6 @@ jobs:
           check_url() {
             URL=$1
             echo "Test de $URL..."
-            # -k : ignore les erreurs de certificat SSL (nécessaire sur Sandbox)
-            # --retry 5 : laisse plus de temps aux pods pour être totalement prêts
             STATUS=$(curl -s -L -k -o /dev/null -w "%{http_code}" --retry 5 --retry-delay 5 "$URL")
             echo "→ Code HTTP : $STATUS"
 

@@ -1,20 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../config/supabase');
 const authMiddleware = require('../middlewares/auth');
 const { body, validationResult } = require('express-validator');
 
 /* -----------------------------------------------------------
-   HELPER : URL Publique
------------------------------------------------------------ */
-const toImageUrl = (path) => {
-  if (!path || path === 'default-annonce.jpg') return '/default-annonce.jpg';
-  const { data } = supabase.storage.from('annonces-images').getPublicUrl(path);
-  return data.publicUrl;
-};
-
-/* -----------------------------------------------------------
-   VALIDATION EXPRESS-VALIDATOR (alignée avec les tests)
+   VALIDATION EXPRESS-VALIDATOR
 ----------------------------------------------------------- */
 const validateAnnonce = [
   body('titre')
@@ -43,12 +33,9 @@ router.get('/', async (req, res) => {
       "SELECT * FROM annonces WHERE status = 'validated' ORDER BY created_at DESC"
     );
 
-    const annonces = result.rows.map(row => ({
-      ...row,
-      image: toImageUrl(row.image)
-    }));
+    // 🔥 Cloudinary : l’URL est déjà complète
+    res.json({ annonces: result.rows });
 
-    res.json({ annonces });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -66,6 +53,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     );
 
     res.json({ annonces: result.rows });
+
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
@@ -79,7 +67,8 @@ router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
     const pool = req.app.locals.pool;
     const { titre, description, image } = req.body;
 
-    const imagePath = image || 'default-annonce.jpg';
+    // 🔥 Cloudinary : l’image est déjà une URL complète
+    const imageUrl = image || 'default-annonce.jpg';
 
     const query = `
       INSERT INTO annonces (titre, description, image, user_id, status)
@@ -90,17 +79,15 @@ router.post('/', authMiddleware, validateAnnonce, async (req, res) => {
     const result = await pool.query(query, [
       titre,
       description,
-      imagePath,
+      imageUrl,
       req.user.id
     ]);
 
     res.status(201).json({
       message: 'Annonce créée',
-      annonce: {
-        ...result.rows[0],
-        image: toImageUrl(result.rows[0].image)
-      }
+      annonce: result.rows[0]
     });
+
   } catch (err) {
     console.error("[POST ERROR]", err);
     res.status(500).json({ error: 'Erreur lors de la création' });
@@ -126,6 +113,7 @@ router.put('/:id', authMiddleware, validateAnnonce, async (req, res) => {
     );
 
     res.json({ message: 'Mise à jour OK' });
+
   } catch (err) {
     res.status(500).json({ error: 'Erreur mise à jour' });
   }
@@ -140,7 +128,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
 
     const check = await pool.query(
-      'SELECT user_id, image FROM annonces WHERE id = $1',
+      'SELECT user_id FROM annonces WHERE id = $1',
       [id]
     );
 
@@ -150,13 +138,13 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     if (check.rows[0].user_id !== req.user.id)
       return res.status(403).json({ error: 'Interdit' });
 
-    if (check.rows[0].image && check.rows[0].image !== 'default-annonce.jpg') {
-      await supabase.storage.from('annonces-images').remove([check.rows[0].image]);
-    }
+    // 🔥 Cloudinary : on ne supprime rien côté backend
+    // (tu peux ajouter une API Cloudinary plus tard si tu veux)
 
     await pool.query('DELETE FROM annonces WHERE id = $1', [id]);
 
     res.json({ message: 'Supprimée avec succès' });
+
   } catch (err) {
     res.status(500).json({ error: 'Erreur suppression' });
   }

@@ -4,16 +4,13 @@ metadata:
   name: {{ .Release.Name }}-frontend
   labels:
     app: frontend
+
 spec:
-  #replicas: 1 #{{ .Values.frontend.replicaCount | default 1 }}
-  
-  # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # RollingUpdate permet un déploiement sans coupure (zéro downtime)
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0   # Aucun pod ne doit être indisponible
-      maxSurge: 1         # Kubernetes peut créer 1 pod supplémentaire pendant l’update
+      maxUnavailable: 0
+      maxSurge: 1
 
   selector:
     matchLabels:
@@ -23,6 +20,7 @@ spec:
     metadata:
       labels:
         app: frontend
+
     spec:
       imagePullSecrets:
         - name: ghcr-secret
@@ -43,7 +41,6 @@ spec:
               drop:
                 - ALL
 
-          # --- 🚀 CONFIGURATION RESSOURCES (Stabilité Frontend) ---
           resources:
             requests:
               cpu: {{ .Values.frontend.resources.requests.cpu | quote }}
@@ -52,15 +49,28 @@ spec:
               cpu: {{ .Values.frontend.resources.limits.cpu | quote }}
               memory: {{ .Values.frontend.resources.limits.memory | quote }}
 
-          # Port 8080 : Requis pour un user non-root sur OpenShift
           ports:
             - containerPort: {{ .Values.frontend.containerPort | default 8080 }}
 
           env:
+            # --- 🌍 URL API BACKEND (injectée depuis values.yaml ou values-secrets.yaml)
             - name: REACT_APP_API_URL
-              value: {{ .Values.backend.url | quote }}
+              value: {{ .Values.frontend.apiUrl | quote }}
 
-          # 🛠️ Nginx doit écrire dans ces dossiers temporaires (obligatoire sur OpenShift).
+            # --- ☁️ CLOUDINARY (upload images)
+            - name: REACT_APP_CLOUDINARY_CLOUD_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: cloudinaryCloudName
+
+            - name: REACT_APP_CLOUDINARY_UPLOAD_PRESET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: cloudinaryUploadPreset
+
+          # Nginx doit écrire dans ces dossiers (OpenShift)
           volumeMounts:
             - name: nginx-cache
               mountPath: /var/cache/nginx
@@ -69,7 +79,6 @@ spec:
             - name: nginx-tmp
               mountPath: /tmp
 
-      # 🗂️ Volumes emptyDir (Stockage en RAM).
       volumes:
         - name: nginx-cache
           emptyDir: {}

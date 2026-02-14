@@ -1,37 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # Nom unique basé sur la release Helm (ex: mon-projet-backend)
+  # Nom du déploiement basé sur la release Helm
   name: {{ .Release.Name }}-backend
   labels:
     app: backend
-spec:
-  # Note : replicas est commenté car le HPA (Horizontal Pod Autoscaler) prend le relais
-  # replicas: 1 
 
-  # --- 🚀 STRATÉGIE DE DÉPLOIEMENT ---
-  # On passe en RollingUpdate (Haute Disponibilité) au lieu de Recreate.
-  # Comme on n'a plus de verrou de disque local (PVC), on peut lancer les nouveaux Pods
-  # avant de supprimer les anciens. Zéro interruption de service.
+spec:
+  # Le HPA gère les replicas → on ne met pas replicas ici
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1       # Un pod supplémentaire autorisé pendant la mise à jour
-      maxUnavailable: 0 # On ne veut jamais avoir moins de pods que prévu
+      maxSurge: 1        # On autorise 1 pod supplémentaire pendant la mise à jour
+      maxUnavailable: 0  # On ne veut jamais perdre de disponibilité
 
   selector:
     matchLabels:
       app: backend
+
   template:
     metadata:
       labels:
         app: backend
+
     spec:
-      # Secret pour s'authentifier sur le registre d'images GitHub (GHCR)
+      # Authentification au registre GHCR
       imagePullSecrets:
         - name: ghcr-secret
 
-      # 🔒 Sécurité globale du Pod (Bonnes pratiques OpenShift)
+      # Sécurité globale du Pod (OpenShift)
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -41,15 +38,15 @@ spec:
         - name: api
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.pullPolicy | default "Always" }}
-          
-          # 🔒 Sécurité du conteneur (Principe du moindre privilège)
+
+          # Sécurité du conteneur (principe du moindre privilège)
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
 
-          # --- 🚀 CONFIGURATION RESSOURCES (Essentiel pour le HPA) ---
+          # Ressources nécessaires pour le HPA
           resources:
             requests:
               cpu: {{ .Values.backend.resources.requests.cpu | quote }}
@@ -61,15 +58,9 @@ spec:
           ports:
             - containerPort: {{ .Values.backend.containerPort | default 3000 }}
 
-          # 📁 SUPPRESSION DU VOLUME LOCAL (PVC RWO)
-          # On a supprimé le montage ici car il empêchait le scaling à 3 pods.
-          # Les images sont maintenant envoyées directement sur Supabase Storage (Stateless).
-          # volumeMounts:
-          #   - name: storage-uploads
-          #     mountPath: /app/uploads
-
+          # 🔥 ENVIRONNEMENT DU BACKEND
           env:
-            # --- Connexion BDD (Secrets Helm) ---
+            # --- 🗄️ BASE DE DONNÉES POSTGRES (Supabase DB) ---
             - name: DB_HOST
               value: {{ .Values.database.host | quote }}
 
@@ -79,13 +70,14 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: dbUrl
 
+            # --- 🌍 CONFIG SERVEUR ---
             - name: PORT
               value: {{ .Values.backend.containerPort | default 3000 | quote }}
 
             - name: FRONTEND_URL
               value: {{ .Values.frontend.url | quote }}
 
-            # --- 🔐 CLÉS JWT (Authentification) ---
+            # --- 🔐 JWT SECRETS ---
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -98,18 +90,11 @@ spec:
                   name: {{ .Release.Name }}-secrets
                   key: jwtRefreshSecret
 
-            # --- 🔐 SDK SUPABASE (Nouveau : Stockage Stateless) ---
-            # Ces clés permettent d'uploader les images sur le cloud sans passer par le disque local
-            - name: SUPABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: supabaseUrl
-
-            - name: SUPABASE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: supabaseKey
-
-    
+          # ❌ SUPPRESSION COMPLÈTE DE SUPABASE STORAGE
+          # Ton backend n’upload plus rien → Cloudinary est côté front
+          # Donc on supprime :
+          #
+          # - SUPABASE_URL
+          # - SUPABASE_KEY
+          #
+          # Cela rend ton backend 100 % stateless et scalable

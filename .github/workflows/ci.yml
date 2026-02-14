@@ -151,10 +151,11 @@ jobs:
           
           # Build Frontend (Inclusion des variables REACT_APP via build-args)
           docker build \
-            --build-arg REACT_APP_SUPABASE_URL="${{ secrets.REACT_APP_SUPABASE_URL }}" \
-            --build-arg REACT_APP_SUPABASE_KEY="${{ secrets.REACT_APP_SUPABASE_KEY }}" \
             --build-arg REACT_APP_API_URL="https://la-petite-maison-epouvante.org/api" \
+            --build-arg REACT_APP_CLOUDINARY_CLOUD_NAME="${{ secrets.CLOUDINARY_CLOUD_NAME }}" \
+            --build-arg REACT_APP_CLOUDINARY_UPLOAD_PRESET="${{ secrets.CLOUDINARY_UPLOAD_PRESET }}" \
             -t $FRONT_ID ./frontend
+          
           echo "FRONT_IMAGE=$FRONT_ID" >> $GITHUB_ENV
 
       - name: 8. Scan Images with Trivy
