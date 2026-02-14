@@ -6,10 +6,6 @@ import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CreateAnnonce from "../pages/CreateAnnonce";
 import { AuthContext } from "../contexts/AuthContext";
-import axios from "axios";
-
-// --- Mock Cloudinary (axios) ---
-jest.mock("axios");
 
 // --- Mock useNavigate ---
 const mockNavigate = jest.fn();
@@ -26,6 +22,16 @@ describe("CreateAnnonce", () => {
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ message: "Succès" }),
+      })
+    );
+
+    // 🔥 Mock Cloudinary (fetch)
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            secure_url: "https://cloudinary.com/fake.jpg",
+          }),
       })
     );
 
@@ -62,11 +68,6 @@ describe("CreateAnnonce", () => {
   });
 
   test("upload une image et crée l'annonce", async () => {
-    // 🔥 Mock Cloudinary upload AVANT renderPage()
-    axios.post.mockResolvedValue({
-      data: { secure_url: "https://cloudinary.com/fake.jpg" },
-    });
-
     renderPage();
 
     fireEvent.change(screen.getByPlaceholderText(/Titre/i), {
