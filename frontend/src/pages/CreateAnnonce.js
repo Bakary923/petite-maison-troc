@@ -2,8 +2,6 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
-// ✅ IMPORT DU CLIENT SUPABASE
-import { supabase } from '../config/supabaseClient';
 
 export default function CreateAnnonce() {
   const { authFetch } = useContext(AuthContext);
@@ -18,6 +16,29 @@ export default function CreateAnnonce() {
     setImageFile(e.target.files?.[0] || null);
   };
 
+  // ✅ NOUVELLE FONCTION : UPLOAD CLOUDINARY
+  async function uploadToCloudinary(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "annonces_secure"); // Ton preset Cloudinary
+
+    const response = await fetch(
+      "https://api.cloudinary.com/v1_1/dnvjmw8tk/image/upload",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.secure_url) {
+      throw new Error("Erreur Cloudinary : impossible d'obtenir l'URL");
+    }
+
+    return data.secure_url; // L’URL finale de l’image
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
@@ -30,42 +51,29 @@ export default function CreateAnnonce() {
     setLoading(true);
 
     try {
-      let imagePath = 'default-annonce.jpg';
+      let imageUrl = 'default-annonce.jpg';
 
-      // ✅ ÉTAPE 1 : UPLOAD DIRECT VERS SUPABASE
+      // ✅ ÉTAPE 1 : UPLOAD VERS CLOUDINARY
       if (imageFile) {
-        // Sécurité : Limite 5Mo
-        if (imageFile.size > 5 * 1024 * 1024) throw new Error("Image trop lourde (max 5 Mo)");
-
-        // Renommage propre pour éviter les doublons dans le bucket
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-        // L'upload utilise maintenant la politique "public" du bucket
-        const { data, error: uploadError } = await supabase.storage
-          .from('annonces-images')
-          .upload(fileName, imageFile);
-
-        if (uploadError) {
-          console.error("Détails erreur Supabase:", uploadError);
-          throw new Error(`Erreur Stockage: ${uploadError.message}`);
+        if (imageFile.size > 5 * 1024 * 1024) {
+          throw new Error("Image trop lourde (max 5 Mo)");
         }
-        
-        imagePath = data.path; 
+
+        imageUrl = await uploadToCloudinary(imageFile);
       }
 
-      // ✅ ÉTAPE 2 : ENVOI JSON AU BACKEND (Sécurisé par ton AuthContext)
+      // ✅ ÉTAPE 2 : ENVOI JSON AU BACKEND
       const res = await authFetch(`${API_BASE_URL}/annonces`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           titre: titre.trim(),
           description: description.trim(),
-          image: imagePath, 
+          image: imageUrl, // URL Cloudinary
         }),
       });
 
-      if (!res.ok) throw new Error('Erreur lors de la création de l\'annonce sur le serveur');
+      if (!res.ok) throw new Error("Erreur lors de la création de l'annonce");
 
       navigate('/annonces');
     } catch (err) {

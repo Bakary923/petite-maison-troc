@@ -6,40 +6,59 @@ import { API_BASE_URL } from '../config';
 export default function Annonces() {
   const { user, authFetch, accessToken } = useContext(AuthContext);
   const navigate = useNavigate();
-  
+
   const [annonces, setAnnonces] = useState([]);
   const [myAnnonces, setMyAnnonces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ titre: '', description: '' });
+
   const [activeTab, setActiveTab] = useState('public');
 
-  // RÉCUPÉRATION DES DONNÉES
+  // ------------------------------------------------------------
+  // 🔥 RÉCUPÉRATION DES ANNONCES PUBLIQUES
+  // ------------------------------------------------------------
   const fetchPublicAnnonces = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/annonces`);
       if (!res.ok) throw new Error('Erreur chargement');
+
       const data = await res.json();
       setAnnonces(data.annonces || []);
-    } catch (err) { setError(err.message); }
+    } catch (err) {
+      setError(err.message);
+    }
   }, []);
 
+  // ------------------------------------------------------------
+  // 🔥 RÉCUPÉRATION DES ANNONCES DE L’UTILISATEUR CONNECTÉ
+  // ------------------------------------------------------------
   const fetchMyAnnonces = useCallback(async () => {
     if (!user || !accessToken || accessToken === 'null') return;
+
     try {
       const res = await authFetch(`${API_BASE_URL}/annonces/me`);
       const data = await res.json();
       setMyAnnonces(data.annonces || []);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   }, [user, accessToken, authFetch]);
 
+  // ------------------------------------------------------------
+  // 🔥 CHARGEMENT INITIAL
+  // ------------------------------------------------------------
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchPublicAnnonces(), fetchMyAnnonces()]).finally(() => setLoading(false));
+    Promise.all([fetchPublicAnnonces(), fetchMyAnnonces()])
+      .finally(() => setLoading(false));
   }, [fetchPublicAnnonces, fetchMyAnnonces]);
 
-  // GESTION DE LA SAUVEGARDE
+  // ------------------------------------------------------------
+  // 🔥 SAUVEGARDE D’UNE ANNONCE MODIFIÉE
+  // ------------------------------------------------------------
   const handleEditSave = async (annonceId) => {
     try {
       const res = await authFetch(`${API_BASE_URL}/annonces/${annonceId}`, {
@@ -56,9 +75,10 @@ export default function Annonces() {
       const data = await res.json();
       const updatedAnnonce = data.annonce;
 
+      // Mise à jour dans les deux listes
       setMyAnnonces(prev => prev.map(a => a.id === annonceId ? updatedAnnonce : a));
       setAnnonces(prev => prev.map(a => a.id === annonceId ? updatedAnnonce : a));
-      
+
       setEditingId(null);
       alert('Annonce sauvegardée avec succès !');
     } catch (err) {
@@ -66,30 +86,55 @@ export default function Annonces() {
     }
   };
 
-  // GESTION DE LA SUPPRESSION (POUR L'UTILISATEUR)
+  // ------------------------------------------------------------
+  // 🔥 SUPPRESSION D’UNE ANNONCE
+  // ------------------------------------------------------------
   const handleDelete = async (id) => {
     if (!window.confirm('Voulez-vous vraiment supprimer cette annonce ?')) return;
+
     try {
       const res = await authFetch(`${API_BASE_URL}/annonces/${id}`, { method: 'DELETE' });
+
       if (res.ok) {
         setAnnonces(prev => prev.filter(a => a.id !== id));
         setMyAnnonces(prev => prev.filter(a => a.id !== id));
       }
-    } catch (err) { alert(err.message); }
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
-  if (loading) return <div style={styles.page}><p style={styles.centerText}>⏳ Chargement des annonces...</p></div>;
+  // ------------------------------------------------------------
+  // 🔥 AFFICHAGE CHARGEMENT
+  // ------------------------------------------------------------
+  if (loading) {
+    return (
+      <div style={styles.page}>
+        <p style={styles.centerText}>⏳ Chargement des annonces...</p>
+      </div>
+    );
+  }
 
+  // ------------------------------------------------------------
+  // 🔥 CHOIX ENTRE ANNONCES PUBLIQUES OU MES ANNONCES
+  // ------------------------------------------------------------
   const displayedAnnonces = activeTab === 'public' ? annonces : myAnnonces;
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
+
+        {/* ------------------------------------------------------------
+            🔥 HEADER + BOUTON CRÉER UNE ANNONCE
+        ------------------------------------------------------------ */}
         <div style={styles.header}>
           <div style={styles.headerContent}>
-            <h1 style={styles.title}>{activeTab === 'public' ? 'Annonces disponibles' : 'Mes Annonces'}</h1>
+            <h1 style={styles.title}>
+              {activeTab === 'public' ? 'Annonces disponibles' : 'Mes Annonces'}
+            </h1>
             <p style={styles.subtitle}>Suivez le statut de vos propositions de troc</p>
           </div>
+
           {user && (
             <button onClick={() => navigate('/create-annonce')} style={styles.createButton}>
               + CRÉER UNE ANNONCE
@@ -97,76 +142,140 @@ export default function Annonces() {
           )}
         </div>
 
+        {/* ------------------------------------------------------------
+            🔥 ONGLET PUBLIC / MES ANNONCES
+        ------------------------------------------------------------ */}
         {user && (
           <div style={styles.tabs}>
-            <button style={{ ...styles.tabButton, ...(activeTab === 'public' ? styles.tabButtonActive : {}) }} onClick={() => setActiveTab('public')}>🌍 Publiques ({annonces.length})</button>
-            <button style={{ ...styles.tabButton, ...(activeTab === 'myannonces' ? styles.tabButtonActive : {}) }} onClick={() => setActiveTab('myannonces')}>📋 Mes annonces ({myAnnonces.length})</button>
+            <button
+              style={{ ...styles.tabButton, ...(activeTab === 'public' ? styles.tabButtonActive : {}) }}
+              onClick={() => setActiveTab('public')}
+            >
+              🌍 Publiques ({annonces.length})
+            </button>
+
+            <button
+              style={{ ...styles.tabButton, ...(activeTab === 'myannonces' ? styles.tabButtonActive : {}) }}
+              onClick={() => setActiveTab('myannonces')}
+            >
+              📋 Mes annonces ({myAnnonces.length})
+            </button>
           </div>
         )}
 
+        {/* ------------------------------------------------------------
+            🔥 AFFICHAGE DES ANNONCES
+        ------------------------------------------------------------ */}
         <div style={styles.grid}>
           {displayedAnnonces.map(a => (
             <div key={a.id} style={styles.card}>
+
+              {/* ------------------------------------------------------------
+                  🔥 MODE ÉDITION
+              ------------------------------------------------------------ */}
               {editingId === a.id ? (
                 <div style={styles.editForm}>
-                  <input style={styles.input} value={editForm.titre} onChange={e => setEditForm({...editForm, titre: e.target.value})} />
-                  <textarea style={styles.textarea} value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} />
+                  <input
+                    style={styles.input}
+                    value={editForm.titre}
+                    onChange={e => setEditForm({ ...editForm, titre: e.target.value })}
+                  />
+
+                  <textarea
+                    style={styles.textarea}
+                    value={editForm.description}
+                    onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  />
+
                   <div style={styles.editActions}>
                     <button onClick={() => handleEditSave(a.id)} style={styles.saveBtn}>Sauvegarder</button>
                     <button onClick={() => setEditingId(null)} style={styles.cancelBtn}>Annuler</button>
                   </div>
                 </div>
               ) : (
+
+                /* ------------------------------------------------------------
+                    🔥 MODE AFFICHAGE NORMAL
+                ------------------------------------------------------------ */
                 <div style={styles.cardInner}>
-                  {a.image && <div style={styles.imageWrapper}><img src={a.image} alt={a.titre} style={styles.image} /></div>}
+
+                  {/* ------------------------------------------------------------
+                      🔥 IMAGE CLOUDINARY
+                      IMPORTANT :
+                      - Tu n'as PLUS besoin de reconstruire une URL Supabase
+                      - L’URL Cloudinary est déjà complète
+                  ------------------------------------------------------------ */}
+                  {a.image && (
+                    <div style={styles.imageWrapper}>
+                      <img src={a.image} alt={a.titre} style={styles.image} />
+                    </div>
+                  )}
+
                   <div style={styles.cardContent}>
                     <h3 style={styles.cardTitle}>{a.titre}</h3>
                     <p style={styles.cardDescription}>{a.description}</p>
+
                     <div style={styles.cardMeta}>
                       <span>👤 {a.username}</span>
                       <span>🕐 {new Date(a.created_at || a.createdAt).toLocaleDateString('fr-FR')}</span>
                     </div>
 
+                    {/* ------------------------------------------------------------
+                        🔥 BADGE STATUT (MES ANNONCES)
+                    ------------------------------------------------------------ */}
                     {activeTab === 'myannonces' && (
                       <div style={{
-                        ...styles.statusBadge, 
-                        background: a.status === 'pending' ? 'rgba(249,115,22,0.2)' : 'rgba(34,197,94,0.2)',
+                        ...styles.statusBadge,
+                        background: a.status === 'pending'
+                          ? 'rgba(249,115,22,0.2)'
+                          : 'rgba(34,197,94,0.2)',
                         color: a.status === 'pending' ? '#fbbf24' : '#4ade80'
                       }}>
                         {a.status === 'pending' ? 'EN ATTENTE' : 'VALIDÉ'}
                       </div>
                     )}
 
-                    {/* ✅ LOGIQUE DE BOUTONS CORRIGÉE */}
-                    {/* Seul Moussa (propriétaire) voit les boutons ici. L'admin n'a rien à modifier ici. */}
+                    {/* ------------------------------------------------------------
+                        🔥 BOUTONS MODIFIER / SUPPRIMER
+                        (Seulement pour le propriétaire)
+                    ------------------------------------------------------------ */}
                     {user && (user.id === a.user_id || user.id === a.userId) && (
                       <div style={styles.actions}>
-                        <button 
-                          onClick={() => { setEditingId(a.id); setEditForm({titre: a.titre, description: a.description}); }} 
+                        <button
+                          onClick={() => {
+                            setEditingId(a.id);
+                            setEditForm({ titre: a.titre, description: a.description });
+                          }}
                           style={styles.editBtn}
                         >
                           ✏️ Modifier
                         </button>
-                        <button 
-                          onClick={() => handleDelete(a.id)} 
+
+                        <button
+                          onClick={() => handleDelete(a.id)}
                           style={styles.deleteBtn}
                         >
                           🗑️ Supprimer
                         </button>
                       </div>
                     )}
+
                   </div>
                 </div>
               )}
+
             </div>
           ))}
         </div>
+
       </div>
     </div>
   );
 }
 
-// Les styles restent identiques à ta version précédente
+// ------------------------------------------------------------
+// 🔥 STYLES (inchangés)
+// ------------------------------------------------------------
 const styles = {
   page: { minHeight: '100vh', background: 'radial-gradient(circle at 0% 0%, #1f2937 0, transparent 50%), radial-gradient(circle at 100% 100%, #7f1d1d 0, transparent 50%), linear-gradient(135deg, #020617, #020617)', color: '#F9FAFB', padding: '60px 20px' },
   container: { maxWidth: '1280px', margin: '0 auto' },
