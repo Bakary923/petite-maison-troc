@@ -42,9 +42,6 @@ describe("CreateAnnonce", () => {
       </AuthContext.Provider>
     );
 
-  // ---------------------------------------------------------
-  // TEST 1 : Création d'annonce sans image
-  // ---------------------------------------------------------
   test("envoie une annonce valide sans image", async () => {
     renderPage();
 
@@ -64,11 +61,8 @@ describe("CreateAnnonce", () => {
     );
   });
 
-  // ---------------------------------------------------------
-  // TEST 2 : Upload Cloudinary + création d'annonce
-  // ---------------------------------------------------------
   test("upload une image et crée l'annonce", async () => {
-    // 🔥 Mock Cloudinary upload OK
+    // 🔥 Mock Cloudinary upload AVANT renderPage()
     axios.post.mockResolvedValue({
       data: { secure_url: "https://cloudinary.com/fake.jpg" },
     });
