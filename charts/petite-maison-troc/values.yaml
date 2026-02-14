@@ -16,11 +16,6 @@ secrets:
   jwtSecret: "REDACTED"
   jwtRefreshSecret: "REDACTED"
 
-  # --- ☁️ CLOUDINARY (Nouveau stockage images) ---
-  cloudinary:
-    cloudName: "REDACTED"
-    uploadPreset: "REDACTED"
-
 # --- 3. BACKEND (API) ---
 backend:
   image:
