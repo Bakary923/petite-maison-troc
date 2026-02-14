@@ -1,42 +1,51 @@
-import React, { createContext, useState, useCallback } from 'react';
-// ✅ DÉCOUPLAGE : Import de l'URL centralisée pour permettre au Frontend de s'adapter 
-// aux différents environnements (Docker, Minikube, OpenShift) sans modifier le code.
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import { API_BASE_URL } from '../config';
 
-// Contexte global d'authentification pour centraliser la gestion de session
+// ============================================================================
+// 🌐 CONTEXTE GLOBAL D’AUTHENTIFICATION
+// ----------------------------------------------------------------------------
+// Ce contexte centralise :
+// - l’utilisateur connecté
+// - les jetons (access / refresh)
+// - login / logout / register
+// - authFetch (requêtes sécurisées avec refresh automatique)
+// ============================================================================
+
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // ✅ FIABILITÉ (ISO 25010) : Initialisation sécurisée traitant le texte "null" comme un vrai null.
-  // Cela évite l'envoi de jetons malformés lors des premiers appels API.
+
+  // ==========================================================================
+  // 🔐 INITIALISATION SÉCURISÉE DES JETONS
+  // ==========================================================================
   const [accessToken, setAccessToken] = useState(() => {
     const token = localStorage.getItem('accessToken');
     return (token === 'null' || !token) ? null : token;
   });
-  
+
   const [refreshToken, setRefreshToken] = useState(() => {
     const token = localStorage.getItem('refreshToken');
     return (token === 'null' || !token) ? null : token;
   });
 
-  // Chargement des données utilisateur (username, role) depuis le stockage local.
+  // ==========================================================================
+  // 👤 CHARGEMENT DE L’UTILISATEUR
+  // ==========================================================================
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem('user');
     return (raw && raw !== 'null') ? JSON.parse(raw) : null;
   });
 
-  // ============================================
-  // ✅ FONCTION REFRESH : Renouvellement dynamique du jeton expiré
-  // ============================================
+  // ==========================================================================
+  // 🔄 REFRESH TOKEN : Renouvellement automatique du jeton expiré
+  // ==========================================================================
   const refreshAccessToken = useCallback(async () => {
-    // 🛡️ SÉCURITÉ : Vérification de la présence d'un jeton de rafraîchissement.
     if (!refreshToken || refreshToken === 'null') {
-      console.log('[REFRESH] Aucun jeton de rafraîchissement disponible');
+      console.log('[REFRESH] Aucun refreshToken disponible');
       return null;
     }
 
     try {
-      // ✅ APPEL DYNAMIQUE : Utilisation de API_BASE_URL configurée pour le tunnel Minikube.
       const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,21 +53,22 @@ export function AuthProvider({ children }) {
       });
 
       if (!res.ok) {
-        console.log('[REFRESH] Échec du renouvellement de session');
+        console.log('[REFRESH] Échec du refresh → logout()');
         logout();
         return null;
       }
 
       const data = await res.json();
 
-      // Mise à jour du stockage persistant avec les nouveaux secrets.
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
+
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
 
-      console.log('[REFRESH] ✅ Nouveau jeton d\'accès généré via Minikube');
+      console.log('[REFRESH] Nouveau jeton généré');
       return data.accessToken;
+
     } catch (err) {
       console.error('[REFRESH ERROR]', err);
       logout();
@@ -66,13 +76,12 @@ export function AuthProvider({ children }) {
     }
   }, [refreshToken]);
 
-  // ============================================
-  // DÉCONNEXION : Nettoyage des données (Local et State)
-  // ============================================
+  // ==========================================================================
+  // 🚪 LOGOUT : Nettoyage complet
+  // ==========================================================================
   const logout = useCallback(async () => {
     if (refreshToken && refreshToken !== 'null') {
       try {
-        // ✅ APPEL DYNAMIQUE : Notification au serveur via l'URL de l'orchestrateur.
         await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -86,16 +95,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+
     setAccessToken(null);
     setRefreshToken(null);
     setUser(null);
   }, [refreshToken]);
 
-  // ============================================
-  // LOGIN - Authentification initiale
-  // ============================================
+  // ==========================================================================
+  // 🔑 LOGIN
+  // ==========================================================================
   const login = useCallback(async ({ email, password }) => {
-    // ✅ APPEL DYNAMIQUE : Connexion vers le tunnel backend de Minikube.
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -109,15 +118,16 @@ export function AuthProvider({ children }) {
 
     const data = await res.json();
 
-    // Persistance des jetons (Access: 15m, Refresh: 7j).
     if (data.accessToken) {
       localStorage.setItem('accessToken', data.accessToken);
       setAccessToken(data.accessToken);
     }
+
     if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
       setRefreshToken(data.refreshToken);
     }
+
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
@@ -126,11 +136,10 @@ export function AuthProvider({ children }) {
     return data.user;
   }, []);
 
-  // ============================================
-  // REGISTER - Création de compte
-  // ============================================
+  // ==========================================================================
+  // 🆕 REGISTER
+  // ==========================================================================
   const register = useCallback(async ({ username, email, password }) => {
-    // ✅ APPEL DYNAMIQUE : Création d'utilisateur via l'API orchestrée
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,45 +157,43 @@ export function AuthProvider({ children }) {
       localStorage.setItem('accessToken', data.accessToken);
       setAccessToken(data.accessToken);
     }
+
     if (data.refreshToken) {
       localStorage.setItem('refreshToken', data.refreshToken);
       setRefreshToken(data.refreshToken);
     }
+
     if (data.user) {
       localStorage.setItem('user', JSON.stringify(data.user));
       setUser(data.user);
       return data.user;
     }
+
     return null;
   }, []);
 
-  // ============================================
-  // ✅ AUTHFETCH : Intercepteur sécurisé avec refresh automatique
-  // ============================================
+  // ==========================================================================
+  // 🛡️ AUTHFETCH : Requêtes sécurisées + refresh automatique
+  // ==========================================================================
   const authFetch = useCallback(
     async (url, options = {}) => {
       const headers = { ...(options.headers || {}) };
-      
+
       if (!(options.body instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
 
-      // ✅ OBSERVABILITÉ : On bloque l'envoi de jetons "null" ou "undefined" en tant que chaîne de caractères.
-      // Cela évite les erreurs "JWT Malformed" inutiles dans les logs du backend.
       if (accessToken && accessToken !== 'null' && accessToken !== 'undefined') {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
       let res = await fetch(url, { ...options, headers });
 
-      // ✅ GESTION DU CYCLE DE VIE DU JETON : Refresh automatique sur erreur 401.
       if (res.status === 401 && refreshToken && refreshToken !== 'null') {
-        console.log('[AUTHFETCH] Jeton expiré, tentative de rafraîchissement...');
-        
+        console.log('[AUTHFETCH] Jeton expiré → refresh...');
         const newAccessToken = await refreshAccessToken();
-        
+
         if (newAccessToken) {
-          // Relance automatique de la requête avec le nouveau jeton.
           headers.Authorization = `Bearer ${newAccessToken}`;
           res = await fetch(url, { ...options, headers });
         } else {
@@ -204,15 +211,18 @@ export function AuthProvider({ children }) {
     [accessToken, refreshToken, refreshAccessToken, logout]
   );
 
+  // ==========================================================================
+  // 🧩 PROVIDER
+  // ==========================================================================
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        accessToken, 
+    <AuthContext.Provider
+      value={{
+        user,
+        accessToken,
         refreshToken,
-        login, 
-        logout, 
-        register, 
+        login,
+        logout,
+        register,
         authFetch
       }}
     >
@@ -220,9 +230,16 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-/*
-RÉSUMÉ DES CONTRÔLES INTÉGRÉS :
-- ✅ Fiabilité (ISO 25010) : Gestion des états de jetons "null" pour éviter les crashs client[cite: 35].
-- ✅ Sécurité : Système d'authentification robuste avec rotation des jetons (Access/Refresh)[cite: 24].
-- ✅ Observabilité : Nettoyage des headers Authorization pour des logs backend exploitables[cite: 87].
-*/
+
+// ============================================================================
+// 🧲 HOOK useAuth : accès simplifié au contexte
+// ----------------------------------------------------------------------------
+// Ce hook est indispensable pour :
+// - Home.jsx
+// - Navbar
+// - Tests Jest
+// - Toute logique conditionnelle (user connecté / non connecté)
+// ============================================================================
+export const useAuth = () => {
+  return useContext(AuthContext);
+};
