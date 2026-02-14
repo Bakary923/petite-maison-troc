@@ -57,19 +57,6 @@ spec:
             - name: REACT_APP_API_URL
               value: {{ .Values.frontend.apiUrl | quote }}
 
-            # --- ☁️ CLOUDINARY (upload images)
-            - name: REACT_APP_CLOUDINARY_CLOUD_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: cloudinaryCloudName
-
-            - name: REACT_APP_CLOUDINARY_UPLOAD_PRESET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Release.Name }}-secrets
-                  key: cloudinaryUploadPreset
-
           # Nginx doit écrire dans ces dossiers (OpenShift)
           volumeMounts:
             - name: nginx-cache
