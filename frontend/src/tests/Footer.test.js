@@ -13,7 +13,7 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
-// ============================================================
+// ============================================================-
 // 🧪 MOCK DU MODAL DE CONTACT
 // ------------------------------------------------------------
 // On remplace ContactModal par un composant simple pour éviter
