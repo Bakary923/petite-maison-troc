@@ -86,7 +86,7 @@ export default function CreateAnnonce() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h2 style={styles.title}>👻 Nouvelle Annonce (Cloud-Native)</h2>
+        <h2 style={styles.title}> Nouvelle Annonce </h2>
         {error && <div style={styles.error}>{error}</div>}
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
