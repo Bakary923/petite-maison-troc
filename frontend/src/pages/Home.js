@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../config';
 import hauntedHouse from '../assets/maison_hanté.png';
 
 // 🔥 Hook d’auth (à adapter selon ton projet)
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Home() {
   const navigate = useNavigate();
