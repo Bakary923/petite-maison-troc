@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import Home from '../pages/Home';
+import { useAuth } from '../context/AuthContext';
 
 // ============================================================
 // 🧪 MOCK DU NAVIGATE
@@ -17,7 +18,7 @@ jest.mock('../context/AuthContext', () => ({
   useAuth: jest.fn()
 }));
 
-import { useAuth } from '../context/AuthContext';
+
 
 // ============================================================
 // 🧪 MOCK DU FETCH GLOBAL
