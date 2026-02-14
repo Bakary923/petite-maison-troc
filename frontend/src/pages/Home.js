@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import hauntedHouse from '../assets/maison_hanté.png';
 
-// 🔥 Hook d’auth (à adapter selon ton projet)
+// 🔥 Hook d’auth
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // 👈 Détection utilisateur connecté
+
+  // 👇 Détection utilisateur connecté
+  const { user } = useAuth();
 
   const [annonceCount, setAnnonceCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 Récupération du nombre d’annonces
   useEffect(() => {
     const fetchAnnonceCount = async () => {
       try {
@@ -34,9 +37,12 @@ export default function Home() {
 
   return (
     <div style={styles.page}>
+
       {/* HERO */}
       <section style={styles.hero}>
         <div style={styles.heroInner}>
+
+          {/* COLONNE GAUCHE */}
           <div style={styles.heroLeft}>
             <span style={styles.pill}>● Plateforme de troc communautaire</span>
 
@@ -49,6 +55,8 @@ export default function Home() {
             </p>
 
             <div style={styles.actions}>
+
+              {/* Toujours visible */}
               <button
                 onClick={() => navigate('/annonces')}
                 style={styles.primaryButton}
@@ -78,6 +86,7 @@ export default function Home() {
             </div>
           </div>
 
+          {/* COLONNE DROITE */}
           <div style={styles.heroRight}>
             <div style={styles.glowOrange} />
             <div style={styles.glowBlue} />
@@ -99,10 +108,11 @@ export default function Home() {
               </p>
             </div>
           </div>
+
         </div>
       </section>
 
-      {/* SECTION COMMENT ÇA MARCHE */}
+      {/* COMMENT ÇA MARCHE */}
       <section style={styles.section}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>Comment ça marche ?</h2>
@@ -140,26 +150,31 @@ export default function Home() {
             </p>
           </div>
 
-          {/* 🔥 Si connecté → cacher "Rejoindre maintenant" */}
+          {/* 🔥 Si connecté → bouton "Voir mes annonces" */}
           {user ? (
-            <button onClick={() => navigate('/annonces/me')} style={styles.ctaButton}>
+            <button
+              onClick={() => navigate('/annonces/me')}
+              style={styles.ctaButton}
+            >
               Voir mes annonces
             </button>
           ) : (
-            <button onClick={() => navigate('/signup')} style={styles.ctaButton}>
+            <button
+              onClick={() => navigate('/signup')}
+              style={styles.ctaButton}
+            >
               Rejoindre maintenant
             </button>
           )}
         </div>
       </section>
 
-      {/* 🔥 Animations CSS */}
+      {/* Animations CSS */}
       <style>
         {`
           .feature-card {
             transition: all 0.25s ease;
           }
-
           .feature-card:hover {
             transform: translateY(-6px);
             border-color: rgba(249,115,22,0.6);
@@ -167,6 +182,7 @@ export default function Home() {
           }
         `}
       </style>
+
     </div>
   );
 }
@@ -185,17 +201,12 @@ const styles = {
   titleAccent: { color: '#f97316', background: 'linear-gradient(135deg, #f97316, #ea580c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
   subtitle: { fontSize: 18, color: '#9CA3AF', maxWidth: 520, lineHeight: 1.6 },
   actions: { marginTop: 24, display: 'flex', gap: 16 },
-
   primaryButton: { padding: '14px 32px', borderRadius: 999, border: 'none', background: 'radial-gradient(circle at 0 0, rgba(249,115,22,0.4), rgba(249,115,22,0.95))', color: '#020617', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 0 28px rgba(249,115,22,0.6)' },
-
   secondaryButton: { padding: '14px 32px', borderRadius: 999, border: '1px solid rgba(148, 163, 184, 0.6)', background: 'transparent', color: '#E5E7EB', fontWeight: 600, textTransform: 'uppercase', cursor: 'pointer' },
-
   secondaryButtonConnected: { padding: '14px 32px', borderRadius: 999, border: '1px solid rgba(249,115,22,0.6)', background: 'rgba(249,115,22,0.1)', color: '#f97316', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' },
-
   heroRight: { position: 'relative', minHeight: 320 },
   glowOrange: { position: 'absolute', right: -60, top: -60, width: 200, height: 200, background: 'rgba(249, 115, 22, 0.25)', filter: 'blur(80px)', pointerEvents: 'none' },
   glowBlue: { position: 'absolute', left: -60, bottom: -60, width: 220, height: 220, background: 'rgba(59, 130, 246, 0.25)', filter: 'blur(90px)', pointerEvents: 'none' },
-
   card: { borderRadius: 28, border: '1px solid rgba(148, 163, 184, 0.4)', background: 'rgba(15, 23, 42, 0.92)', padding: 28, backdropFilter: 'blur(20px)' },
   cardHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   cardTitle: { fontSize: 16, fontWeight: 600, color: '#F9FAFB' },
@@ -203,19 +214,15 @@ const styles = {
   cardBody: { borderRadius: 20, border: '1px solid rgba(55, 65, 81, 0.9)', aspectRatio: '4 / 3', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, overflow: 'hidden' },
   hauntedImage: { width: '100%', height: '100%', objectFit: 'cover' },
   cardText: { fontSize: 14, color: '#9CA3AF', lineHeight: 1.6 },
-
   section: { maxWidth: '1180px', margin: '80px auto', padding: '0 20px' },
   sectionHeader: { marginBottom: 48 },
   sectionTitle: { fontSize: 36, fontWeight: 700, margin: '0 0 12px 0' },
   sectionSubtitle: { fontSize: 16, color: '#9CA3AF' },
-
   featureGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 },
   featureCard: { borderRadius: 20, border: '1px solid rgba(31, 41, 55, 0.9)', background: 'rgba(15, 23, 42, 0.96)', padding: 28, position: 'relative' },
   step: { position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: 999, border: '1px solid rgba(148, 163, 184, 0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#9CA3AF' },
-
   featureTitle: { fontSize: 18, fontWeight: 600, marginBottom: 12 },
   featureText: { fontSize: 14, color: '#9CA3AF', lineHeight: 1.6 },
-
   cta: { padding: '0 20px 100px' },
   ctaInner: { maxWidth: '1180px', margin: '0 auto', borderRadius: 28, background: 'radial-gradient(circle at 0% 0%, rgba(249,115,22,0.2), transparent 45%), rgba(15, 23, 42, 0.98)', padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32 },
   ctaTitle: { fontSize: 28, fontWeight: 700, margin: '0 0 12px 0' },
