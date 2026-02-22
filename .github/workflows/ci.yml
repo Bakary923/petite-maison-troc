@@ -131,8 +131,6 @@ jobs:
           projectBaseDir: .
           args: >
             -Dsonar.javascript.lcov.reportPaths=reports/backend-coverage/lcov.info,reports/frontend-coverage/lcov.info
-            -Dsonar.coverage.exclusions=**/*.test.js,**/*.css,**/*.scss,**/__mocks__/**
-            -Dsonar.exclusions=frontend/src/reportWebVitals.js,backend/api-service/src/config/database.js,frontend/src/index.js,frontend/src/App.js,frontend/src/setupTests.js,frontend/src/config.js,backend/api-service/src/admin/**,frontend/src/components/Navbar.js,frontend/src/components/Footer.js,backend/api-service/src/app.js,**/package-lock.json
 
       # --- ÉTAPE 7 : BUILD DES IMAGES DOCKER ---
       # ✅ Ajout des --build-arg pour injecter les secrets REACT_APP dans le Frontend
