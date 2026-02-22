@@ -32,7 +32,7 @@ router.get('/annonces', authMiddleware, adminMiddleware, async (req, res) => {
     `;
     const result = await pool.query(query);
     
-    // ✨ AJOUT : Construire les URLs d'images
+    // AJOUT : Construire les URLs d'images
     const annonces = result.rows.map(r => ({
       ...r,
       image: toImageUrl(req, r.image)
