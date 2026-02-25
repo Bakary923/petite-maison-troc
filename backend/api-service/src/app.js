@@ -43,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 // ============================================================================
 // ✅ GESTION DES FICHIERS (MISE À JOUR STATELESS)
 // ============================================================================
-// ❌ ANCIENNE LOGIQUE PVC : Supprimée pour résoudre l'erreur de montage RWO sur OpenShift.
+// ANCIENNE LOGIQUE PVC : Supprimée pour résoudre l'erreur de montage RWO sur OpenShift.
 // Les images ne sont plus servies localement mais via le CDN de Supabase.
 /* const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
