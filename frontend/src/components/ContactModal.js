@@ -39,7 +39,20 @@ export default function ContactModal({ isOpen, onClose }) {
 
   return (
     <>
-      <div style={styles.backdrop} onClick={onClose} />
+      {/* CORRECTION SONARQUBE : Ajout du support clavier et des rôles ARIA pour l'accessibilité */}
+      <div 
+        style={styles.backdrop} 
+        onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onClose();
+          }
+        }}
+        role="button"
+        tabIndex="0"
+        aria-label="Fermer la fenêtre en cliquant sur le fond"
+      />
+      
       <div style={styles.modal} className="modal-container">
         <div style={styles.header}>
           <h2 style={styles.title}>Nous contacter</h2>
@@ -47,15 +60,15 @@ export default function ContactModal({ isOpen, onClose }) {
             onClick={onClose}
             style={styles.closeBtn}
             className="modal-close-icon"
+            aria-label="Fermer"
           >
             ✕
           </button>
         </div>
-
         <div style={styles.content}>
           {success ? (
             <div style={styles.successBox}>
-              <p style={styles.successIcon}>✓</p>
+              <p style={styles.successIcon}> ✓ </p>
               <p style={styles.successText}>Message envoyé avec succès !</p>
               <p style={styles.successSubtext}>Nous vous répondrons au plus vite.</p>
             </div>
@@ -63,10 +76,9 @@ export default function ContactModal({ isOpen, onClose }) {
             <form onSubmit={handleSubmit} style={styles.form} className="modal-form">
               {error && (
                 <div style={styles.errorBox}>
-                  <span>⚠️</span> {error}
+                  <span> ⚠️ </span> {error}
                 </div>
               )}
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Nom *</label>
                 <input
@@ -79,7 +91,6 @@ export default function ContactModal({ isOpen, onClose }) {
                   style={styles.input}
                 />
               </div>
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Email *</label>
                 <input
@@ -92,7 +103,6 @@ export default function ContactModal({ isOpen, onClose }) {
                   style={styles.input}
                 />
               </div>
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Sujet *</label>
                 <input
@@ -105,7 +115,6 @@ export default function ContactModal({ isOpen, onClose }) {
                   style={styles.input}
                 />
               </div>
-
               <div style={styles.formGroup}>
                 <label style={styles.label}>Message *</label>
                 <textarea
@@ -118,7 +127,6 @@ export default function ContactModal({ isOpen, onClose }) {
                   style={styles.textarea}
                 />
               </div>
-
               <div style={styles.actions} className="modal-actions">
                 <button
                   type="submit"
@@ -130,7 +138,7 @@ export default function ContactModal({ isOpen, onClose }) {
                   }}
                   className="btn-modal-submit"
                 >
-                  {loading ? 'Envoi...' : '📤 Envoyer'}
+                  {loading ? 'Envoi...' : ' 📤  Envoyer'}
                 </button>
                 <button
                   type="button"
