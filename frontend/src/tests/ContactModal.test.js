@@ -1,6 +1,6 @@
 // ContactModal.test.js
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ContactModal from '../components/ContactModal';
 
@@ -18,6 +18,15 @@ const onClose = jest.fn();
 
 function renderOpen() {
   return render(<ContactModal isOpen={true} onClose={onClose} />);
+}
+
+async function fillAndSubmit() {
+  renderOpen();
+  await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
+  await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
+  await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test');
+  await userEvent.type(screen.getByPlaceholderText('Ton message...'), 'Hello');
+  fireEvent.submit(screen.getByPlaceholderText('Ton nom').closest('form'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -99,30 +108,20 @@ describe('Saisie du formulaire', () => {
 // 4. Soumission réussie
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Soumission réussie', () => {
-  async function fillAndSubmit() {
-    renderOpen();
-    await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
-    await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
-    await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test');
-    await userEvent.type(screen.getByPlaceholderText('Ton message...'), 'Hello');
-    await act(async () => {
-      fireEvent.submit(screen.getByRole('button', { name: /Envoyer/i }).closest('form'));
-    });
-  }
-
   it('affiche le message de succès après soumission', async () => {
     await fillAndSubmit();
     expect(await screen.findByText(/Message envoyé avec succès/i)).toBeInTheDocument();
   });
 
-  it('réinitialise les champs après soumission', async () => {
+  it('masque le formulaire après soumission', async () => {
     await fillAndSubmit();
-    // Le formulaire est remplacé par le successBox, les inputs ne sont plus là
+    await screen.findByText(/Message envoyé avec succès/i);
     expect(screen.queryByPlaceholderText('Ton nom')).not.toBeInTheDocument();
   });
 
   it('appelle onClose après 2 secondes', async () => {
     await fillAndSubmit();
+    await screen.findByText(/Message envoyé avec succès/i);
     expect(onClose).not.toHaveBeenCalled();
 
     act(() => { jest.advanceTimersByTime(2000); });
@@ -135,24 +134,25 @@ describe('Soumission réussie', () => {
 // 5. État loading
 // ══════════════════════════════════════════════════════════════════════════════
 describe('État loading', () => {
-  it('désactive le bouton submit pendant le chargement', async () => {
-    // On bloque handleSubmit pour capturer l'état intermédiaire
-    jest.spyOn(global.console, 'log').mockImplementation(() => {});
-
+  it('affiche "Envoi..." pendant le chargement', async () => {
     renderOpen();
     await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
     await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
     await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test');
     await userEvent.type(screen.getByPlaceholderText('Ton message...'), 'Hello');
 
-    // Pendant l'envoi, le bouton doit être disabled
-    let submitBtn;
-    await act(async () => {
-      submitBtn = screen.getByRole('button', { name: /Envoyer/i });
-      fireEvent.submit(submitBtn.closest('form'));
-      // Juste après le submit, avant que la promesse resolve
-      expect(submitBtn).toBeDisabled();
+    // Bloque la résolution de la promesse pour capturer l'état intermédiaire
+    let resolveSubmit;
+    jest.spyOn(global.console, 'log').mockImplementation(() => {
+      return new Promise(res => { resolveSubmit = res; });
     });
+
+    fireEvent.submit(screen.getByPlaceholderText('Ton nom').closest('form'));
+
+    expect(screen.getByText('Envoi...')).toBeInTheDocument();
+    expect(screen.getByText('Envoi...')).toBeDisabled();
+
+    resolveSubmit && resolveSubmit();
   });
 });
 
