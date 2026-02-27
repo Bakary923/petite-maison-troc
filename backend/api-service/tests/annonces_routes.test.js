@@ -1,121 +1,270 @@
+// annonces.routes.test.js
 const request = require('supertest');
-const app = require('../src/app');
-const jwt = require('jsonwebtoken');
+const express = require('express');
+const router = require('../routes/annonces');
 
-const token = jwt.sign(
-  { id: 1, role: 'user' },
-  process.env.JWT_SECRET || 'test_secret_pour_ci'
-);
+// ─── Mock authMiddleware ───────────────────────────────────────────────────────
+jest.mock('../middlewares/auth', () => (req, res, next) => {
+  req.user = { id: 1 };
+  next();
+});
 
-describe('📦 Audit Logique Métier : annonces.routes.js', () => {
+// ─── Factory app ──────────────────────────────────────────────────────────────
+function makeApp(poolMock) {
+  const app = express();
+  app.use(express.json());
+  app.locals.pool = poolMock;
+  app.use('/api/annonces', router);
+  return app;
+}
 
-  // ============================================================
-  // VALIDATION EXPRESS-VALIDATOR
-  // ============================================================
-  it('400 - Doit rejeter un titre trop long (>100 chars)', async () => {
-    const res = await request(app)
-      .post('/api/annonces')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ titre: 'A'.repeat(101), description: 'Description valide' });
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const makePool = (rows = [], overrides = {}) => ({
+  query: jest.fn().mockResolvedValue({ rows }),
+  ...overrides,
+});
 
-    expect(res.statusCode).toBe(400);
-  });
+const validBody = {
+  titre: 'Mon titre valide',
+  description: 'Une description suffisamment longue pour passer la validation.',
+  image: 'https://example.com/img.jpg',
+};
 
-  it('400 - Doit rejeter une description trop courte', async () => {
-    const res = await request(app)
-      .post('/api/annonces')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ titre: 'Titre valide', description: 'short' });
+beforeEach(() => jest.clearAllMocks());
 
-    expect(res.statusCode).toBe(400);
-  });
+// ══════════════════════════════════════════════════════════════════════════════
+// GET /api/annonces
+// ══════════════════════════════════════════════════════════════════════════════
+describe('GET /api/annonces', () => {
+  it('retourne les annonces validées (200)', async () => {
+    const annonces = [{ id: 1, titre: 'Test', status: 'validated' }];
+    const app = makeApp(makePool(annonces));
 
-  // ============================================================
-  // GET /api/annonces (public)
-  // ============================================================
-  it('200 - Doit retourner la liste des annonces validées', async () => {
     const res = await request(app).get('/api/annonces');
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('annonces');
+    expect(res.status).toBe(200);
+    expect(res.body.annonces).toEqual(annonces);
   });
 
-  // ============================================================
-  // GET /api/annonces/me (privé)
-  // ============================================================
-  it('401 - Doit refuser l’accès sans token', async () => {
+  it('retourne 500 en cas d\'erreur DB', async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+    const app = makeApp(pool);
+
+    const res = await request(app).get('/api/annonces');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erreur serveur');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GET /api/annonces/me
+// ══════════════════════════════════════════════════════════════════════════════
+describe('GET /api/annonces/me', () => {
+  it('retourne les annonces de l\'utilisateur connecté (200)', async () => {
+    const annonces = [{ id: 2, titre: 'Ma annonce', user_id: 1 }];
+    const app = makeApp(makePool(annonces));
+
     const res = await request(app).get('/api/annonces/me');
-    expect(res.statusCode).toBe(401);
+
+    expect(res.status).toBe(200);
+    expect(res.body.annonces).toEqual(annonces);
   });
 
-  it('200 - Doit retourner mes annonces', async () => {
-    const res = await request(app)
-      .get('/api/annonces/me')
-      .set('Authorization', `Bearer ${token}`);
+  it('retourne 500 en cas d\'erreur DB', async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+    const app = makeApp(pool);
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('annonces');
+    const res = await request(app).get('/api/annonces/me');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Erreur serveur');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// POST /api/annonces
+// ══════════════════════════════════════════════════════════════════════════════
+describe('POST /api/annonces', () => {
+  it('crée une annonce avec succès (201)', async () => {
+    const created = { id: 10, ...validBody, status: 'pending', user_id: 1 };
+    const app = makeApp(makePool([created]));
+
+    const res = await request(app).post('/api/annonces').send(validBody);
+
+    expect(res.status).toBe(201);
+    expect(res.body.annonce).toEqual(created);
+    expect(res.body.message).toMatch(/en attente/i);
   });
 
-  // ============================================================
-  // DELETE /api/annonces/:id
-  // ============================================================
-  it('404 - Doit retourner une erreur si l’annonce à supprimer n’existe pas', async () => {
-    const res = await request(app)
-      .delete('/api/annonces/999999')
-      .set('Authorization', `Bearer ${token}`);
+  it('utilise "default-annonce.jpg" si aucune image fournie', async () => {
+    const created = { id: 11, titre: validBody.titre, image: 'default-annonce.jpg' };
+    const pool = makePool([created]);
+    const app = makeApp(pool);
 
-    expect(res.statusCode).toBe(404);
+    const { image, ...bodyWithoutImage } = validBody;
+    await request(app).post('/api/annonces').send(bodyWithoutImage);
+
+    const callArgs = pool.query.mock.calls[0][1];
+    expect(callArgs[2]).toBe('default-annonce.jpg');
   });
 
-  it('403 - Doit refuser si l’annonce ne m’appartient pas', async () => {
-    const fakeToken = jwt.sign(
-      { id: 999, role: 'user' },
-      process.env.JWT_SECRET || 'test_secret_pour_ci'
-    );
-
-    const res = await request(app)
-      .delete('/api/annonces/1')
-      .set('Authorization', `Bearer ${fakeToken}`);
-
-    // Si l’annonce existe mais n’appartient pas à l’utilisateur
-    expect([403, 404]).toContain(res.statusCode);
-  });
-
-  // ============================================================
-  // PUT /api/annonces/:id
-  // ============================================================
-  it('400 - Doit rejeter une mise à jour avec un titre invalide', async () => {
-    const res = await request(app)
-      .put('/api/annonces/1')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ titre: '', description: 'Description valide' });
-
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('404 - Doit retourner une erreur si l’annonce à modifier n’existe pas', async () => {
-    const res = await request(app)
-      .put('/api/annonces/999999')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ titre: 'Titre', description: 'Description valide' });
-
-    expect(res.statusCode).toBe(404);
-  });
-
-  // ============================================================
-  // POST /api/annonces (cas succès sans image)
-  // ============================================================
-  it('201 - Doit créer une annonce valide (sans image)', async () => {
+  it('retourne 400 si le titre est manquant', async () => {
+    const app = makeApp(makePool());
     const res = await request(app)
       .post('/api/annonces')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        titre: 'Titre valide',
-        description: 'Description suffisamment longue'
-      });
+      .send({ description: validBody.description });
 
-    // Si la DB est mockée ou vide, on peut avoir 500 → acceptable en CI
-    expect([201, 500]).toContain(res.statusCode);
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toBeDefined();
+  });
+
+  it('retourne 400 si le titre est trop court (< 3 caractères)', async () => {
+    const app = makeApp(makePool());
+    const res = await request(app)
+      .post('/api/annonces')
+      .send({ ...validBody, titre: 'AB' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si la description est trop courte (< 10 caractères)', async () => {
+    const app = makeApp(makePool());
+    const res = await request(app)
+      .post('/api/annonces')
+      .send({ ...validBody, description: 'Court' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 400 si la description est trop longue (> 500 caractères)', async () => {
+    const app = makeApp(makePool());
+    const res = await request(app)
+      .post('/api/annonces')
+      .send({ ...validBody, description: 'A'.repeat(501) });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 500 en cas d\'erreur DB', async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+    const app = makeApp(pool);
+
+    const res = await request(app).post('/api/annonces').send(validBody);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/création/i);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PUT /api/annonces/:id
+// ══════════════════════════════════════════════════════════════════════════════
+describe('PUT /api/annonces/:id', () => {
+  it('met à jour une annonce existante (200)', async () => {
+    const existing = [{ id: 1, image: 'old.jpg' }];
+    const pool = {
+      query: jest.fn()
+        .mockResolvedValueOnce({ rows: existing }) // SELECT check
+        .mockResolvedValueOnce({ rows: [] }),       // UPDATE
+    };
+    const app = makeApp(pool);
+
+    const res = await request(app).put('/api/annonces/1').send(validBody);
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/ok/i);
+  });
+
+  it('retourne 404 si l\'annonce n\'existe pas', async () => {
+    const app = makeApp(makePool([]));
+
+    const res = await request(app).put('/api/annonces/999').send(validBody);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/non trouvée/i);
+  });
+
+  it('utilise l\'ancienne image si aucune nouvelle image fournie', async () => {
+    const existing = [{ id: 1, image: 'old-image.jpg' }];
+    const pool = {
+      query: jest.fn()
+        .mockResolvedValueOnce({ rows: existing })
+        .mockResolvedValueOnce({ rows: [] }),
+    };
+    const app = makeApp(pool);
+
+    const { image, ...bodyWithoutImage } = validBody;
+    await request(app).put('/api/annonces/1').send(bodyWithoutImage);
+
+    const updateCall = pool.query.mock.calls[1][1];
+    expect(updateCall[2]).toBe('old-image.jpg');
+  });
+
+  it('retourne 400 si la validation échoue', async () => {
+    const app = makeApp(makePool());
+    const res = await request(app)
+      .put('/api/annonces/1')
+      .send({ titre: 'AB', description: 'Court' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('retourne 500 en cas d\'erreur DB', async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+    const app = makeApp(pool);
+
+    const res = await request(app).put('/api/annonces/1').send(validBody);
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/mise à jour/i);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DELETE /api/annonces/:id
+// ══════════════════════════════════════════════════════════════════════════════
+describe('DELETE /api/annonces/:id', () => {
+  it('supprime une annonce appartenant à l\'utilisateur (200)', async () => {
+    const pool = {
+      query: jest.fn()
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] }) // SELECT check
+        .mockResolvedValueOnce({ rows: [] }),               // DELETE
+    };
+    const app = makeApp(pool);
+
+    const res = await request(app).delete('/api/annonces/1');
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/supprimée/i);
+  });
+
+  it('retourne 404 si l\'annonce n\'existe pas', async () => {
+    const app = makeApp(makePool([]));
+
+    const res = await request(app).delete('/api/annonces/999');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/non trouvée/i);
+  });
+
+  it('retourne 403 si l\'annonce appartient à un autre utilisateur', async () => {
+    const pool = makePool([{ user_id: 99 }]); // user_id différent de req.user.id (1)
+    const app = makeApp(pool);
+
+    const res = await request(app).delete('/api/annonces/1');
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/interdit/i);
+  });
+
+  it('retourne 500 en cas d\'erreur DB', async () => {
+    const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
+    const app = makeApp(pool);
+
+    const res = await request(app).delete('/api/annonces/1');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/suppression/i);
   });
 });
