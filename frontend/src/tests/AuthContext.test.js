@@ -6,14 +6,23 @@ global.fetch = jest.fn();
 
 function TestComponent() {
   const { user, accessToken, login, logout, register, authFetch } = React.useContext(AuthContext);
+  
+  const handleLogin = async () => {
+    try { await login({ email: 't@t.com', password: '1' }); } catch (e) {}
+  };
+
+  const handleAuthFetch = async () => {
+    try { await authFetch('/api/test'); } catch (e) {}
+  };
+
   return (
     <div>
       <div data-testid="user">{user ? user.username : 'guest'}</div>
       <div data-testid="token">{accessToken || 'no-token'}</div>
-      <button onClick={() => login({ email: 't@t.com', password: '1' })}>Login</button>
+      <button onClick={handleLogin}>Login</button>
       <button onClick={() => logout()}>Logout</button>
       <button onClick={() => register({ username: 'Baka', email: 'b@b.com' })}>Register</button>
-      <button onClick={() => authFetch('/api/test')}>AuthFetch</button>
+      <button onClick={handleAuthFetch}>AuthFetch</button>
     </div>
   );
 }
@@ -47,8 +56,10 @@ describe('🔐 AuthContext - Couverture Totale', () => {
     });
     render(<AuthProvider><TestComponent /></AuthProvider>);
     fireEvent.click(screen.getByText('Login'));
-    // Ici on vérifie simplement que le fetch a été appelé, le catch est interne
+    
     await waitFor(() => expect(fetch).toHaveBeenCalled());
+    // Le texte reste 'guest' car le login a échoué
+    expect(screen.getByTestId('user').textContent).toBe('guest');
   });
 
   // --- TESTS DE LOGOUT ---
@@ -59,35 +70,19 @@ describe('🔐 AuthContext - Couverture Totale', () => {
     await waitFor(() => expect(localStorage.getItem('accessToken')).toBeNull());
   });
 
-  // --- TESTS DE REFRESH TOKEN (Cœur du sujet pour Sonar) ---
+  // --- TESTS DE REFRESH TOKEN ---
   it('✅ authFetch : rafraîchit le token si 401 et relance la requête', async () => {
     localStorage.setItem('accessToken', 'expired_token');
     localStorage.setItem('refreshToken', 'valid_refresh');
 
-    // 1er appel : 401 Unauthorized (Token expiré)
-    fetch.mockResolvedValueOnce({ status: 401, ok: false });
-    
-    // 2ème appel (interne) : Refresh réussi
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ accessToken: 'new_access_token' })
-    });
-
-    // 3ème appel : La requête initiale /api/test est relancée avec le nouveau token
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ data: 'success' })
-    });
+    fetch.mockResolvedValueOnce({ status: 401, ok: false }); // 401 initial
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ accessToken: 'new_at' }) }); // Refresh success
+    fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: 'ok' }) }); // Retry success
 
     render(<AuthProvider><TestComponent /></AuthProvider>);
     fireEvent.click(screen.getByText('AuthFetch'));
 
-    await waitFor(() => {
-      // On vérifie que le localStorage a été mis à jour avec le nouveau token
-      expect(localStorage.getItem('accessToken')).toBe('new_access_token');
-    });
-    // On vérifie que fetch a été appelé 3 fois (fail -> refresh -> retry)
+    await waitFor(() => expect(localStorage.getItem('accessToken')).toBe('new_at'));
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -95,16 +90,13 @@ describe('🔐 AuthContext - Couverture Totale', () => {
     localStorage.setItem('accessToken', 'expired');
     localStorage.setItem('refreshToken', 'bad_refresh');
 
-    // 1er appel : 401
-    fetch.mockResolvedValueOnce({ status: 401, ok: false });
-    // 2ème appel : Le refresh échoue aussi
-    fetch.mockResolvedValueOnce({ ok: false });
+    fetch.mockResolvedValueOnce({ status: 401, ok: false }); // 401
+    fetch.mockResolvedValueOnce({ ok: false }); // Refresh fails (ex: throw session expirée)
 
     render(<AuthProvider><TestComponent /></AuthProvider>);
     fireEvent.click(screen.getByText('AuthFetch'));
 
     await waitFor(() => {
-      // L'utilisateur doit être déconnecté (nettoyage)
       expect(localStorage.getItem('accessToken')).toBeNull();
     });
   });
