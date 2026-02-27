@@ -1,15 +1,13 @@
-// annonces.routes.test.js
+// tests/annonces_routes.test.js
 const request = require('supertest');
 const express = require('express');
-const router = require('../routes/annonces');
+const router = require('../src/annonces/annonces.routes');
 
-// ─── Mock authMiddleware ───────────────────────────────────────────────────────
-jest.mock('../middlewares/auth', () => (req, res, next) => {
+jest.mock('../src/middlewares/auth', () => (req, res, next) => {
   req.user = { id: 1 };
   next();
 });
 
-// ─── Factory app ──────────────────────────────────────────────────────────────
 function makeApp(poolMock) {
   const app = express();
   app.use(express.json());
@@ -18,7 +16,6 @@ function makeApp(poolMock) {
   return app;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const makePool = (rows = [], overrides = {}) => ({
   query: jest.fn().mockResolvedValue({ rows }),
   ...overrides,
@@ -46,7 +43,7 @@ describe('GET /api/annonces', () => {
     expect(res.body.annonces).toEqual(annonces);
   });
 
-  it('retourne 500 en cas d\'erreur DB', async () => {
+  it("retourne 500 en cas d'erreur DB", async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
     const app = makeApp(pool);
 
@@ -61,7 +58,7 @@ describe('GET /api/annonces', () => {
 // GET /api/annonces/me
 // ══════════════════════════════════════════════════════════════════════════════
 describe('GET /api/annonces/me', () => {
-  it('retourne les annonces de l\'utilisateur connecté (200)', async () => {
+  it("retourne les annonces de l'utilisateur connecté (200)", async () => {
     const annonces = [{ id: 2, titre: 'Ma annonce', user_id: 1 }];
     const app = makeApp(makePool(annonces));
 
@@ -71,7 +68,7 @@ describe('GET /api/annonces/me', () => {
     expect(res.body.annonces).toEqual(annonces);
   });
 
-  it('retourne 500 en cas d\'erreur DB', async () => {
+  it("retourne 500 en cas d'erreur DB", async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
     const app = makeApp(pool);
 
@@ -146,7 +143,7 @@ describe('POST /api/annonces', () => {
     expect(res.status).toBe(400);
   });
 
-  it('retourne 500 en cas d\'erreur DB', async () => {
+  it("retourne 500 en cas d'erreur DB", async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
     const app = makeApp(pool);
 
@@ -165,8 +162,8 @@ describe('PUT /api/annonces/:id', () => {
     const existing = [{ id: 1, image: 'old.jpg' }];
     const pool = {
       query: jest.fn()
-        .mockResolvedValueOnce({ rows: existing }) // SELECT check
-        .mockResolvedValueOnce({ rows: [] }),       // UPDATE
+        .mockResolvedValueOnce({ rows: existing })
+        .mockResolvedValueOnce({ rows: [] }),
     };
     const app = makeApp(pool);
 
@@ -176,7 +173,7 @@ describe('PUT /api/annonces/:id', () => {
     expect(res.body.message).toMatch(/ok/i);
   });
 
-  it('retourne 404 si l\'annonce n\'existe pas', async () => {
+  it("retourne 404 si l'annonce n'existe pas", async () => {
     const app = makeApp(makePool([]));
 
     const res = await request(app).put('/api/annonces/999').send(validBody);
@@ -185,7 +182,7 @@ describe('PUT /api/annonces/:id', () => {
     expect(res.body.error).toMatch(/non trouvée/i);
   });
 
-  it('utilise l\'ancienne image si aucune nouvelle image fournie', async () => {
+  it("utilise l'ancienne image si aucune nouvelle image fournie", async () => {
     const existing = [{ id: 1, image: 'old-image.jpg' }];
     const pool = {
       query: jest.fn()
@@ -210,7 +207,7 @@ describe('PUT /api/annonces/:id', () => {
     expect(res.status).toBe(400);
   });
 
-  it('retourne 500 en cas d\'erreur DB', async () => {
+  it("retourne 500 en cas d'erreur DB", async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
     const app = makeApp(pool);
 
@@ -222,14 +219,14 @@ describe('PUT /api/annonces/:id', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DELETE /api/annonces/:id -
+// DELETE /api/annonces/:id
 // ══════════════════════════════════════════════════════════════════════════════
 describe('DELETE /api/annonces/:id', () => {
-  it('supprime une annonce appartenant à l\'utilisateur (200)', async () => {
+  it("supprime une annonce appartenant à l'utilisateur (200)", async () => {
     const pool = {
       query: jest.fn()
-        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] }) // SELECT check
-        .mockResolvedValueOnce({ rows: [] }),               // DELETE
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] }),
     };
     const app = makeApp(pool);
 
@@ -239,7 +236,7 @@ describe('DELETE /api/annonces/:id', () => {
     expect(res.body.message).toMatch(/supprimée/i);
   });
 
-  it('retourne 404 si l\'annonce n\'existe pas', async () => {
+  it("retourne 404 si l'annonce n'existe pas", async () => {
     const app = makeApp(makePool([]));
 
     const res = await request(app).delete('/api/annonces/999');
@@ -248,8 +245,8 @@ describe('DELETE /api/annonces/:id', () => {
     expect(res.body.error).toMatch(/non trouvée/i);
   });
 
-  it('retourne 403 si l\'annonce appartient à un autre utilisateur', async () => {
-    const pool = makePool([{ user_id: 99 }]); // user_id différent de req.user.id (1)
+  it("retourne 403 si l'annonce appartient à un autre utilisateur", async () => {
+    const pool = makePool([{ user_id: 99 }]);
     const app = makeApp(pool);
 
     const res = await request(app).delete('/api/annonces/1');
@@ -258,7 +255,7 @@ describe('DELETE /api/annonces/:id', () => {
     expect(res.body.error).toMatch(/interdit/i);
   });
 
-  it('retourne 500 en cas d\'erreur DB', async () => {
+  it("retourne 500 en cas d'erreur DB", async () => {
     const pool = { query: jest.fn().mockRejectedValue(new Error('DB error')) };
     const app = makeApp(pool);
 
