@@ -1,125 +1,274 @@
+// AdminDashboard.test.js
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import AdminDashboard from '../pages/AdminDashboard';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
-import { BrowserRouter } from 'react-router-dom';
+import AdminDashboard from './AdminDashboard';
 
-// Mocks globaux pour éviter les alertes Sonar et les erreurs de console
-console.error = jest.fn();
-window.confirm = jest.fn(() => true);
-window.alert = jest.fn();
-window.prompt = jest.fn();
+// ─── Mocks ────────────────────────────────────────────────────────────────────
+jest.mock('../config', () => ({ API_BASE_URL: 'http://localhost:4000' }));
+jest.mock('../components/AdminCard', () => ({ annonce, onValidate, onReject, onDelete }) => (
+  <div data-testid={`card-${annonce.id}`}>
+    <span>{annonce.title}</span>
+    <button onClick={() => onValidate(annonce.id)}>validate</button>
+    <button onClick={() => onReject(annonce.id, 'raison')}>reject</button>
+    <button onClick={() => onDelete(annonce.id)}>delete</button>
+  </div>
+));
+jest.mock('../styles/AdminDashboard.css', () => ({}));
 
-const mockAuthFetch = jest.fn();
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const makeResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: () => Promise.resolve(body),
+});
 
-const renderAdminDashboard = (user) => {
-  return render(
-    <AuthContext.Provider value={{ user, authFetch: mockAuthFetch }}>
-      <BrowserRouter>
+const adminUser = { id: 1, username: 'SuperAdmin', email: 'admin@test.com', role: 'admin' };
+const regularUser = { id: 2, username: 'JohnDoe', email: 'john@test.com', role: 'user' };
+
+const mockAnnonces = [
+  { id: 1, title: 'Annonce A', status: 'pending' },
+  { id: 2, title: 'Annonce B', status: 'pending' },
+];
+
+// ─── Factory de rendu avec contexte ──────────────────────────────────────────
+function renderWithAuth(user, authFetchImpl) {
+  const authFetch = authFetchImpl || jest.fn(() => Promise.resolve(makeResponse(mockAnnonces)));
+  return {
+    authFetch,
+    ...render(
+      <AuthContext.Provider value={{ user, authFetch }}>
         <AdminDashboard />
-      </BrowserRouter>
-    </AuthContext.Provider>
-  );
-};
+      </AuthContext.Provider>
+    ),
+  };
+}
 
-describe('AdminDashboard - Full Coverage & Lint Friendly', () => {
-  const adminUser = { username: 'Admin', role: 'admin' };
-  const mockAnnonces = [
-    { 
-      id: 1, 
-      titre: 'Objet Test', 
-      description: 'Test Desc', 
-      statut: 'pending' 
-    }
-  ];
+// ─── Setup ────────────────────────────────────────────────────────────────────
+beforeEach(() => {
+  jest.clearAllMocks();
+  window.alert = jest.fn();
+  window.confirm = jest.fn(() => true);
+});
 
-  beforeEach(() => {
-    jest.clearAllMocks();
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. Contrôle d'accès
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Contrôle d\'accès', () => {
+  it('affiche "Accès refusé" si user est null', () => {
+    render(
+      <AuthContext.Provider value={{ user: null, authFetch: jest.fn() }}>
+        <AdminDashboard />
+      </AuthContext.Provider>
+    );
+    expect(screen.getByText(/Accès refusé/i)).toBeInTheDocument();
   });
 
-  // 1. Test de sécurité (Role-Based Access Control)
-  it('affiche un message d\'erreur si l\'utilisateur n\'est pas admin', async () => {
-    renderAdminDashboard({ username: 'User', role: 'user' });
-    const errorMsg = await screen.findByText(/pas autorisé à accéder à cette page/i);
-    expect(errorMsg).toBeInTheDocument();
+  it('affiche "Accès refusé" si user n\'est pas admin', () => {
+    renderWithAuth(regularUser);
+    expect(screen.getByText(/Accès refusé/i)).toBeInTheDocument();
   });
 
-  // 2. Test de chargement et affichage
-  it('affiche les annonces chargées avec succès', async () => {
-    mockAuthFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockAnnonces,
+  it('affiche le dashboard si user est admin', async () => {
+    renderWithAuth(adminUser);
+    await waitFor(() => {
+      expect(screen.getByText(/Tableau de Bord Admin/i)).toBeInTheDocument();
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. Chargement des annonces
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Chargement des annonces', () => {
+  it('affiche les annonces récupérées', async () => {
+    renderWithAuth(adminUser);
+    await waitFor(() => {
+      expect(screen.getByTestId('card-1')).toBeInTheDocument();
+      expect(screen.getByTestId('card-2')).toBeInTheDocument();
+    });
+  });
+
+  it('accepte une réponse { annonces: [...] }', async () => {
+    const authFetch = jest.fn(() =>
+      Promise.resolve(makeResponse({ annonces: [{ id: 3, title: 'Annonce C' }] }))
+    );
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => {
+      expect(screen.getByTestId('card-3')).toBeInTheDocument();
+    });
+  });
+
+  it('affiche le message vide si aucune annonce', async () => {
+    const authFetch = jest.fn(() => Promise.resolve(makeResponse([])));
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => {
+      expect(screen.getByText(/Aucune annonce trouvée/i)).toBeInTheDocument();
+    });
+  });
+
+  it('affiche une erreur si la requête échoue', async () => {
+    const authFetch = jest.fn(() => Promise.resolve(makeResponse({}, 500)));
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => {
+      expect(screen.getByText(/Erreur lors du chargement/i)).toBeInTheDocument();
+    });
+  });
+
+  it('affiche une erreur si fetch throw', async () => {
+    const authFetch = jest.fn(() => Promise.reject(new Error('Network error')));
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => {
+      expect(screen.getByText(/Erreur lors du chargement/i)).toBeInTheDocument();
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. Filtres
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Filtres', () => {
+  it('utilise l\'URL /admin/annonces/pending par défaut', async () => {
+    const { authFetch } = renderWithAuth(adminUser);
+    await waitFor(() => screen.getByTestId('card-1'));
+    expect(authFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/admin/annonces/pending')
+    );
+  });
+
+  it('utilise /admin/annonces quand filtre = all', async () => {
+    const { authFetch } = renderWithAuth(adminUser);
+    await waitFor(() => screen.getByText(/Toutes/i));
+
+    await act(async () => {
+      screen.getByText(/Toutes/i).click();
     });
 
-    renderAdminDashboard(adminUser);
-    
-    // findByText est asynchrone et respecte la règle ESLint prefer-find-by
-    const item = await screen.findByText('Objet Test');
-    expect(item).toBeInTheDocument();
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/annonces'),
+      );
+    });
+    // S'assure que l'URL exacte sans filtre est appelée
+    const calls = authFetch.mock.calls.map(c => c[0]);
+    expect(calls.some(url => url.endsWith('/admin/annonces'))).toBe(true);
   });
 
-  // 3. Test de filtrage
-  it('change le filtre d\'API lors du clic sur les boutons', async () => {
-    mockAuthFetch.mockResolvedValue({
-      ok: true,
-      json: async () => mockAnnonces,
+  it('utilise /admin/annonces/validated quand filtre = validated', async () => {
+    const { authFetch } = renderWithAuth(adminUser);
+    await waitFor(() => screen.getByText(/Validées/i));
+
+    await act(async () => {
+      screen.getByText(/Validées/i).click();
     });
 
-    renderAdminDashboard(adminUser);
-    await screen.findByText('Objet Test');
+    await waitFor(() => {
+      expect(authFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/annonces/validated')
+      );
+    });
+  });
+});
 
-    const validBtn = screen.getByText(/validées/i);
-    fireEvent.click(validBtn);
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. Actions (validate / reject / delete)
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Actions sur les annonces', () => {
+  it('valide une annonce et la retire de la liste', async () => {
+    const authFetch = jest.fn()
+      .mockResolvedValueOnce(makeResponse(mockAnnonces))          // fetch initial
+      .mockResolvedValueOnce(makeResponse({ success: true }));    // PUT validate
 
-    expect(mockAuthFetch).toHaveBeenCalledWith(
-      expect.stringContaining('filter=validated'),
-      expect.anything()
-    );
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => screen.getByTestId('card-1'));
+
+    await act(async () => {
+      screen.getAllByText('validate')[0].click();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-1')).not.toBeInTheDocument();
+    });
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('validée'));
   });
 
-  // 4. Test d'action : Validation (PUT)
-  it('appelle l\'API de validation au clic sur Valider', async () => {
-    mockAuthFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => mockAnnonces })
-      .mockResolvedValueOnce({ ok: true });
+  it('rejette une annonce et la retire de la liste', async () => {
+    const authFetch = jest.fn()
+      .mockResolvedValueOnce(makeResponse(mockAnnonces))
+      .mockResolvedValueOnce(makeResponse({ success: true }));
 
-    renderAdminDashboard(adminUser);
-    const btn = await screen.findByText(/valider/i);
-    fireEvent.click(btn);
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => screen.getByTestId('card-1'));
 
-    expect(mockAuthFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/validate'),
-      expect.objectContaining({ method: 'PUT' })
-    );
+    await act(async () => {
+      screen.getAllByText('reject')[0].click();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-1')).not.toBeInTheDocument();
+    });
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('rejetée'));
   });
 
-  // 5. Test d'action : Rejet (PUT avec motif)
-  it('appelle l\'API de rejet au clic sur Refuser', async () => {
-    window.prompt.mockReturnValueOnce('Motif de refus');
-    mockAuthFetch
-      .mockResolvedValueOnce({ ok: true, json: async () => mockAnnonces })
-      .mockResolvedValueOnce({ ok: true });
+  it('supprime une annonce après confirmation', async () => {
+    const authFetch = jest.fn()
+      .mockResolvedValueOnce(makeResponse(mockAnnonces))
+      .mockResolvedValueOnce(makeResponse({ success: true }));
 
-    renderAdminDashboard(adminUser);
-    const btn = await screen.findByText(/refuser/i);
-    fireEvent.click(btn);
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => screen.getByTestId('card-1'));
 
-    expect(mockAuthFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/reject'),
-      expect.objectContaining({
-        method: 'PUT',
-        body: JSON.stringify({ reason: 'Motif de refus' })
-      })
-    );
+    await act(async () => {
+      screen.getAllByText('delete')[0].click();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('card-1')).not.toBeInTheDocument();
+    });
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('supprimée'));
   });
 
-  // 6. Test de gestion d'erreur réseau (Catch block)
-  it('gère les erreurs de chargement réseau', async () => {
-    mockAuthFetch.mockRejectedValueOnce(new Error('Network Error'));
+  it('ne supprime pas si l\'utilisateur annule la confirmation', async () => {
+    window.confirm = jest.fn(() => false);
+    const authFetch = jest.fn().mockResolvedValueOnce(makeResponse(mockAnnonces));
 
-    renderAdminDashboard(adminUser);
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => screen.getByTestId('card-1'));
 
-    const errorMsg = await screen.findByText(/erreur lors du chargement/i);
-    expect(errorMsg).toBeInTheDocument();
+    await act(async () => {
+      screen.getAllByText('delete')[0].click();
+    });
+
+    expect(screen.getByTestId('card-1')).toBeInTheDocument();
+    expect(authFetch).toHaveBeenCalledTimes(1); // seulement le fetch initial
+  });
+
+  it('affiche une alerte si la validation échoue', async () => {
+    const authFetch = jest.fn()
+      .mockResolvedValueOnce(makeResponse(mockAnnonces))
+      .mockResolvedValueOnce(makeResponse({}, 500));
+
+    renderWithAuth(adminUser, authFetch);
+    await waitFor(() => screen.getByTestId('card-1'));
+
+    await act(async () => {
+      screen.getAllByText('validate')[0].click();
+    });
+
+    await waitFor(() => {
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('Erreur'));
+    });
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 5. Affichage du nom d'utilisateur
+// ══════════════════════════════════════════════════════════════════════════════
+describe('Affichage', () => {
+  it('affiche le username de l\'admin dans le sous-titre', async () => {
+    renderWithAuth(adminUser);
+    await waitFor(() => {
+      expect(screen.getByText(/SuperAdmin/)).toBeInTheDocument();
+    });
   });
 });
