@@ -20,13 +20,17 @@ function renderOpen() {
   return render(<ContactModal isOpen={true} onClose={onClose} />);
 }
 
-async function fillAndSubmit() {
-  renderOpen();
+async function fillForm() {
   await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
   await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
   await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test');
   await userEvent.type(screen.getByPlaceholderText('Ton message...'), 'Hello');
-  fireEvent.submit(screen.getByPlaceholderText('Ton nom').closest('form'));
+}
+
+async function fillAndSubmit() {
+  renderOpen();
+  await fillForm();
+  fireEvent.click(screen.getByRole('button', { name: /Envoyer/i }));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -91,7 +95,6 @@ describe('Fermeture', () => {
 describe('Saisie du formulaire', () => {
   it('met à jour les champs à la saisie', async () => {
     renderOpen();
-
     await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
     await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
     await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test sujet');
@@ -134,25 +137,11 @@ describe('Soumission réussie', () => {
 // 5. État loading
 // ══════════════════════════════════════════════════════════════════════════════
 describe('État loading', () => {
-  it('affiche "Envoi..." pendant le chargement', async () => {
+  it('affiche "Envoi..." et désactive le bouton pendant le chargement', async () => {
     renderOpen();
-    await userEvent.type(screen.getByPlaceholderText('Ton nom'), 'Alice');
-    await userEvent.type(screen.getByPlaceholderText('ton@email.com'), 'alice@test.com');
-    await userEvent.type(screen.getByPlaceholderText('Ex: Question sur le troc'), 'Test');
-    await userEvent.type(screen.getByPlaceholderText('Ton message...'), 'Hello');
-
-    // Bloque la résolution de la promesse pour capturer l'état intermédiaire
-    let resolveSubmit;
-    jest.spyOn(global.console, 'log').mockImplementation(() => {
-      return new Promise(res => { resolveSubmit = res; });
-    });
-
-    fireEvent.submit(screen.getByPlaceholderText('Ton nom').closest('form'));
-
-    expect(screen.getByText('Envoi...')).toBeInTheDocument();
+    await fillForm();
+    fireEvent.click(screen.getByRole('button', { name: /Envoyer/i }));
     expect(screen.getByText('Envoi...')).toBeDisabled();
-
-    resolveSubmit && resolveSubmit();
   });
 });
 
