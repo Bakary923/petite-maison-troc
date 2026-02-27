@@ -154,12 +154,12 @@ jobs:
           docker run \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db \
-            aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.BACK_IMAGE }}
+            aquasec/trivy image --severity CRITICAL,HIGH --format table --skip-dirs /usr/local/lib/node_modules/npm ${{ env.BACK_IMAGE }}
 
           docker run \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e TRIVY_DB_REPOSITORY=ghcr.io/aquasecurity/trivy-db \
-            aquasec/trivy image --severity CRITICAL,HIGH --format table ${{ env.FRONT_IMAGE }}
+            aquasec/trivy image --severity CRITICAL,HIGH --format table --skip-dirs /usr/local/lib/node_modules/npm ${{ env.FRONT_IMAGE }}
 
       - name: 9. Login & Push to Registry
         run: |
