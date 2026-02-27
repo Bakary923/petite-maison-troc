@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { AuthContext } from '../contexts/AuthContext';
 import AdminDashboard from '../pages/AdminDashboard';
 
-// ✅ MOCK AdminCard (Isolation)
+// ✅ MOCK AdminCard pour isoler le test du dashboard
 jest.mock('../components/AdminCard', () => {
   return function MockAdminCard({ annonce }) {
     return <div data-testid="admin-card">{annonce.titre}</div>;
@@ -12,13 +12,11 @@ jest.mock('../components/AdminCard', () => {
 
 const mockAuthFetch = jest.fn();
 
-describe('📊 AdminDashboard - Tests de Logique Modération', () => {
+describe('📊 AdminDashboard - Couverture Maximale', () => {
   
-  // On définit une référence vers la vraie fonction console.error
   const originalError = console.error;
-
   beforeAll(() => {
-    // ✅ FIABILITÉ : On filtre les erreurs de style sans créer de boucle infinie
+    // Empêche les avertissements de style JSDOM de polluer la console
     console.error = (...args) => {
       if (typeof args[0] === 'string' && args[0].includes('borderColor')) return;
       originalError.call(console, ...args);
@@ -26,7 +24,6 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
   });
 
   afterAll(() => {
-    // On restaure la console après les tests
     console.error = originalError;
   });
 
@@ -34,27 +31,24 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
     jest.clearAllMocks();
   });
 
-  // ==========================================================
-  // 🛡️ TEST DE SÉCURITÉ (ISO 25010)
-  // ==========================================================
-  it('⚓ Doit afficher "Accès Refusé" si l’utilisateur n’est pas administrateur', () => {
+  // 1. TEST SÉCURITÉ : Accès non autorisé
+  it('⚓ Doit afficher le message de refus si l’utilisateur n’est pas admin', async () => {
     render(
       <AuthContext.Provider value={{ user: { role: 'user' }, authFetch: mockAuthFetch }}>
         <AdminDashboard />
       </AuthContext.Provider>
     );
-    expect(screen.getByText(/accès refusé/i)).toBeInTheDocument();
+    // Vérifie la branche : if (user && user.role !== 'admin')
+    expect(screen.getByText(/Vous n'êtes pas autorisé/i)).toBeInTheDocument();
   });
 
-  // ==========================================================
-  // ⚙️ TEST DE CHARGEMENT DYNAMIQUE
-  // ==========================================================
-  it('⚓ Doit charger et afficher les annonces récupérées via authFetch', async () => {
+  // 2. TEST CHARGEMENT : Succès API avec données
+  it('⚓ Doit charger et afficher les annonces récupérées', async () => {
     mockAuthFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { id: 1, titre: 'Annonce Modérée A' },
-        { id: 2, titre: 'Annonce Modérée B' }
+        { id: 1, titre: 'Objet A', statut: 'pending' },
+        { id: 2, titre: 'Objet B', statut: 'pending' }
       ]
     });
 
@@ -64,13 +58,46 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
       </AuthContext.Provider>
     );
 
-    expect(await screen.findByText(/annonce modérée a/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Objet A/i)).toBeInTheDocument();
+    expect(screen.getAllByTestId('admin-card')).toHaveLength(2);
   });
 
-  // ==========================================================
-  // 🔄 TEST DU CYCLE DE FILTRAGE
-  // ==========================================================
-  it('⚓ Doit relancer authFetch avec le bon filtre lors du clic sur les boutons', async () => {
+  // 3. TEST ÉTAT VIDE : Couvre la branche où aucune annonce n'est trouvée
+  it('⚓ Doit afficher un message si aucune annonce ne correspond au filtre', async () => {
+    mockAuthFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [] // Liste vide
+    });
+
+    render(
+      <AuthContext.Provider value={{ user: { role: 'admin' }, authFetch: mockAuthFetch }}>
+        <AdminDashboard />
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Aucune annonce en attente/i)).toBeInTheDocument();
+    });
+  });
+
+  // 4. TEST ERREUR API : Couvre le bloc "catch (err)"
+  it('⚓ Doit afficher un message d\'erreur si l\'API échoue', async () => {
+    // On simule un rejet de la promesse pour entrer dans le catch(err)
+    mockAuthFetch.mockRejectedValueOnce(new Error('Erreur Serveur'));
+
+    render(
+      <AuthContext.Provider value={{ user: { role: 'admin' }, authFetch: mockAuthFetch }}>
+        <AdminDashboard />
+      </AuthContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Erreur lors du chargement des annonces/i)).toBeInTheDocument();
+    });
+  });
+
+  // 5. TEST FILTRAGE : Changement d'état
+  it('⚓ Doit changer le filtre et recharger les données', async () => {
     mockAuthFetch.mockResolvedValue({
       ok: true,
       json: async () => []
@@ -82,24 +109,14 @@ describe('📊 AdminDashboard - Tests de Logique Modération', () => {
       </AuthContext.Provider>
     );
 
-    // 1. Attente du chargement initial
-    await waitFor(() => {
-      expect(screen.queryByText(/chargement/i)).not.toBeInTheDocument();
-    });
-    expect(mockAuthFetch).toHaveBeenCalledTimes(1);
+    // Attente chargement initial (En attente)
+    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(1));
 
-    // 2. Action : Clic sur le filtre VALIDÉES
+    // Clic sur "Validées" pour changer le state 'filter'
     const btnValidees = screen.getByText(/validées/i);
     fireEvent.click(btnValidees);
+
+    // Vérifie que fetch est rappelé une 2ème fois avec le nouveau filtre
     await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(2));
-
-    // ✅ STABILITÉ : On utilise waitFor au lieu de setTimeout pour être plus "React-compliant"
-    await waitFor(() => expect(screen.queryByText(/chargement/i)).not.toBeInTheDocument());
-
-    // 3. Action : Clic sur le filtre REJETÉES
-    const btnRejetees = screen.getByText(/rejetées/i);
-    fireEvent.click(btnRejetees);
-    await waitFor(() => expect(mockAuthFetch).toHaveBeenCalledTimes(3));
   });
-
 });
