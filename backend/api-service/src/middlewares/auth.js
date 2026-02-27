@@ -3,8 +3,6 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = (req, res, next) => {
-  // Affiche la réception du middleware et les headers, utile pour le debug
-  console.log("Passage dans le middleware auth, headers:", req.headers);
 
   // Vérifie la présence d'un header Authorization
   const authHeader = req.headers.authorization;
@@ -16,7 +14,7 @@ module.exports = (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     // Vérifie et décode le token JWT
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     // Ajoute les informations de l'utilisateur à la requête pour les prochaines middlewares/routes
     req.user = decoded;
     next(); // Passe la main à la route suivante
