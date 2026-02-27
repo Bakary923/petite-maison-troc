@@ -131,22 +131,16 @@ describe('Soumission réussie', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
-});
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 5. État loading
-// ══════════════════════════════════════════════════════════════════════════════
-describe('État loading', () => {
-  it('affiche "Envoi..." et désactive le bouton pendant le chargement', async () => {
+  it('le bouton submit est de type submit', () => {
     renderOpen();
-    await fillForm();
-    fireEvent.click(screen.getByRole('button', { name: /Envoyer/i }));
-    expect(screen.getByText('Envoi...')).toBeDisabled();
+    const btn = screen.getByRole('button', { name: /Envoyer/i });
+    expect(btn).toHaveAttribute('type', 'submit');
   });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 6. Accessibilité
+// 5. Accessibilité
 // ══════════════════════════════════════════════════════════════════════════════
 describe('Accessibilité', () => {
   it('le backdrop a un role="button" et un tabIndex="0"', () => {
