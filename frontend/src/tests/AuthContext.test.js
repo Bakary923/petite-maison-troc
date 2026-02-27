@@ -1,12 +1,15 @@
-// AuthContext.test.js
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { AuthProvider, useAuth, AuthContext } from './AuthContext';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
-// ─── Mock config ───────────────────────────────────────────────────────────
 jest.mock('../config', () => ({ API_BASE_URL: 'http://localhost:4000' }));
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+const makeResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: () => Promise.resolve(body),
+});
+
 const mockFetch = (responses) => {
   let i = 0;
   global.fetch = jest.fn(() => {
@@ -15,13 +18,6 @@ const mockFetch = (responses) => {
   });
 };
 
-const makeResponse = (body, status = 200) => ({
-  ok: status >= 200 && status < 300,
-  status,
-  json: () => Promise.resolve(body),
-});
-
-// Composant consommateur minimal pour les tests
 function Consumer() {
   const auth = useAuth();
   return (
@@ -35,15 +31,11 @@ function Consumer() {
   );
 }
 
-// ─── Setup / Teardown ──────────────────────────────────────────────────────
 beforeEach(() => {
   localStorage.clear();
   jest.clearAllMocks();
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 1. Initialisation depuis localStorage
-// ══════════════════════════════════════════════════════════════════════════════
 describe('Initialisation depuis localStorage', () => {
   it('charge user/tokens depuis localStorage si présents', () => {
     const user = { email: 'stored@test.com', id: 1 };
@@ -67,9 +59,6 @@ describe('Initialisation depuis localStorage', () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 2. Login
-// ══════════════════════════════════════════════════════════════════════════════
 describe('login()', () => {
   it('met à jour user et tokens après un login réussi', async () => {
     mockFetch(makeResponse({
@@ -80,9 +69,7 @@ describe('login()', () => {
 
     render(<AuthProvider><Consumer /></AuthProvider>);
 
-    await act(async () => {
-      screen.getByText('login').click();
-    });
+    await act(async () => { screen.getByText('login').click(); });
 
     expect(screen.getByTestId('user').textContent).toBe('a@b.com');
     expect(screen.getByTestId('access').textContent).toBe('acc_new');
@@ -110,9 +97,6 @@ describe('login()', () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 3. Register
-// ══════════════════════════════════════════════════════════════════════════════
 describe('register()', () => {
   it('enregistre les tokens et user après inscription réussie', async () => {
     mockFetch(makeResponse({
@@ -128,7 +112,7 @@ describe('register()', () => {
     expect(localStorage.getItem('accessToken')).toBe('acc_reg');
   });
 
-  it('lève une erreur en cas d\'échec', async () => {
+  it("lève une erreur en cas d'échec", async () => {
     mockFetch(makeResponse({ message: 'Email déjà utilisé' }, 400));
 
     let error = null;
@@ -148,12 +132,8 @@ describe('register()', () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 4. Logout
-// ══════════════════════════════════════════════════════════════════════════════
 describe('logout()', () => {
   it('vide le state et le localStorage', async () => {
-    // Pré-remplir un état connecté
     localStorage.setItem('accessToken', 'tok_x');
     localStorage.setItem('refreshToken', 'ref_x');
     localStorage.setItem('user', JSON.stringify({ email: 'x@x.com' }));
@@ -180,9 +160,6 @@ describe('logout()', () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 5. authFetch – refresh automatique
-// ══════════════════════════════════════════════════════════════════════════════
 describe('authFetch()', () => {
   it('ajoute le header Authorization avec le token courant', async () => {
     localStorage.setItem('accessToken', 'tok_valid');
@@ -212,11 +189,8 @@ describe('authFetch()', () => {
     localStorage.setItem('refreshToken', 'ref_ok');
 
     global.fetch = jest.fn()
-      // 1er appel : 401 (token expiré)
       .mockResolvedValueOnce(makeResponse({}, 401))
-      // appel refresh
       .mockResolvedValueOnce(makeResponse({ accessToken: 'tok_fresh', refreshToken: 'ref_ok2' }))
-      // retry avec nouveau token
       .mockResolvedValueOnce(makeResponse({ data: 'ok' }));
 
     let result = null;
@@ -242,8 +216,8 @@ describe('authFetch()', () => {
     localStorage.setItem('refreshToken', 'ref_bad');
 
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(makeResponse({}, 401)) // appel initial
-      .mockResolvedValueOnce(makeResponse({}, 403)); // refresh échoue
+      .mockResolvedValueOnce(makeResponse({}, 401))
+      .mockResolvedValueOnce(makeResponse({}, 403));
 
     function FetchTester() {
       const { authFetch } = useAuth();
@@ -264,9 +238,6 @@ describe('authFetch()', () => {
   });
 });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 6. useAuth hook
-// ══════════════════════════════════════════════════════════════════════════════
 describe('useAuth()', () => {
   it('expose les bonnes clés du contexte', () => {
     let ctx = null;
