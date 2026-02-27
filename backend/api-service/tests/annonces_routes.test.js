@@ -222,7 +222,7 @@ describe('PUT /api/annonces/:id', () => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// DELETE /api/annonces/:id
+// DELETE /api/annonces/:id -
 // ══════════════════════════════════════════════════════════════════════════════
 describe('DELETE /api/annonces/:id', () => {
   it('supprime une annonce appartenant à l\'utilisateur (200)', async () => {
