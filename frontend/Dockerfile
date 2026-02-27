@@ -8,13 +8,10 @@ RUN apk upgrade --no-cache
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
-# -----------------------------------------------------------------------------
-# 🔐 VARIABLES D’ENVIRONNEMENT POUR LE BUILD REACT
-# -----------------------------------------------------------------------------
 ARG REACT_APP_API_URL
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
@@ -29,9 +26,8 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 # 🚀 ÉTAPE 2 — Serveur Nginx pour servir le build
 # -----------------------------------------------------------------------------
-FROM nginx:1.27-alpine
+FROM nginx:alpine
 
-# 🔥 Important : upgrade aussi ici
 RUN apk upgrade --no-cache
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
