@@ -24,7 +24,7 @@ Architecture cloud-native avec séparation des responsabilités :
 
 ---
 
-## ⚙️ Tech Stack
+## Tech Stack
 
 - **Frontend** : React, Nginx  
 - **Backend** : Node.js, Express.js  
@@ -89,7 +89,7 @@ Pipeline GitHub Actions avec :
 
 ---
 
-## 🎯 Features
+## Features
 
 - Authentification sécurisée
 - Création d’annonces avec image
